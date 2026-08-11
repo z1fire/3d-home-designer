@@ -25,9 +25,18 @@
 
   /** snap to wall ends and room corners first, then onto any wall face (a T joint) */
   function snapPt(p, skip) {
-    const TOL_PT = .8, TOL_SEG = .55;
+    /* catch distance is a screen distance, so it feels the same at any zoom */
+    const TOL_PT = U.clamp(14 / cam.s, .25, 2.5), TOL_SEG = U.clamp(10 / cam.s, .2, 1.5);
     let best = null;
     const take = (x, z, d, type) => { if (!best || d < best.d) best = { x: x, z: z, d: d, type: type }; };
+    /* landing on a face: slide to the nearest grid step ALONG it, so a joint sits
+       at a round measurement off the corner instead of wherever the cursor was */
+    const onLine = (g, a, b, type) => {
+      if (g.d >= TOL_SEG || !g.len) return;
+      const at = U.clamp(snapOn() ? U.round(g.t * g.len, .25) : g.t * g.len, 0, g.len);
+      const k = at / g.len;
+      take(a.x + (b.x - a.x) * k, a.z + (b.z - a.z) * k, g.d, type);
+    };
 
     HA.walls().forEach(w => {
       ['a', 'b'].forEach(k => {
@@ -46,13 +55,12 @@
       HA.walls().forEach(w => {
         if (skip && skip.wallId === w.id) return;
         const g = U.seg(p.x, p.z, w.a, w.b);
-        if (g.d < TOL_SEG && g.t > .02 && g.t < .98) take(g.x, g.z, g.d, 'wall');
+        if (g.t > .02 && g.t < .98) onLine(g, w.a, w.b, 'wall');
       });
       HA.rooms().forEach(r => r.points.forEach((a, i) => {
         const n = r.points.length, b = r.points[(i + 1) % n];
         if (skip && skip.room === r && (skip.index === i || skip.index === (i + 1) % n)) return;
-        const g = U.seg(p.x, p.z, a, b);
-        if (g.d < TOL_SEG) take(g.x, g.z, g.d, 'edge');
+        onLine(U.seg(p.x, p.z, a, b), a, b, 'edge');
       }));
     }
 
@@ -561,7 +569,7 @@
         HA.snapshot();
         const o = HA.newOpening(tool, 0, fw.at);
         o.width = Math.min(o.width, Math.max(1, fw.L - .4));
-        o.offset = U.clamp(fw.at, o.width / 2, fw.L - o.width / 2);
+        o.offset = U.clamp(snap(fw.at), o.width / 2, fw.L - o.width / 2);
         fw.w.openings.push(o);
         HA.select({ kind: 'opening', id: o.id, wallId: fw.w.id });
         HA.changed(true);
@@ -586,7 +594,7 @@
       HA.snapshot();
       const o = HA.newOpening(tool, best.edge, best.at);
       o.width = Math.min(o.width, Math.max(1, best.len - .6));
-      o.offset = U.clamp(best.at, o.width / 2 + .1, best.len - o.width / 2 - .1);
+      o.offset = U.clamp(snap(best.at), o.width / 2 + .1, best.len - o.width / 2 - .1);
       r.openings.push(o);
       const tw = HA.syncTwin(r, o);
       HA.select({ kind: 'opening', id: o.id, roomId: r.id });
