@@ -50,7 +50,8 @@ body[data-view="3d"] #planWrap{display:none}
 
 .planHud,.view3dHud{position:absolute;left:8px;bottom:8px;display:flex;gap:12px;align-items:center;
   background:rgba(20,23,26,.82);border:1px solid var(--line);border-radius:6px;padding:5px 9px;font-size:11px}
-.view3dHud label{display:flex;gap:4px;align-items:center;white-space:nowrap}
+.view3dHud label,.planHud label{display:flex;gap:4px;align-items:center;white-space:nowrap}
+.planHud select{width:auto;padding:1px 4px;font-size:11px}
 .view3dHud .sun input{width:80px}
 #planCoord{color:var(--accent2);font-variant-numeric:tabular-nums}
 #walkHud{position:absolute;left:50%;transform:translateX(-50%);top:10px;background:rgba(20,23,26,.9);

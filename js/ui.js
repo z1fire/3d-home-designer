@@ -147,7 +147,7 @@
         },
         {
           label: 'Length', type: 'static',
-          get: () => U.ft(U.edgeLen(r.points, sel.index))
+          get: () => U.ft(HA.edgeRef(r, sel.index).len) + (HA.insideMode() ? ' clear' : ' outside')
         }
       ]);
       btns(box, [
@@ -167,15 +167,22 @@
     }
 
     h3(box, 'Room');
-    const b = U.bbox(r.points);
     const rect = r.points.length === 4;
     add(box, [
       { label: 'Name', type: 'text', get: () => r.name, set: v => { r.name = v; HA.changed(false); roomList(); } },
-      rect ? { label: 'Width', type: 'ft', get: () => b.w, set: v => scaleRoom(r, v, null) } : null,
-      rect ? { label: 'Depth', type: 'ft', get: () => b.d, set: v => scaleRoom(r, null, v) } : null,
+      {
+        label: 'Measured', type: 'select', get: () => S.project.dimMode || 'outside',
+        options: [['outside', 'Outside of walls'], ['inside', 'Inside (clear)']],
+        set: v => setDimMode(v)
+      },
+      rect ? { label: 'Width', type: 'ft', get: () => HA.dims(r).w, set: v => scaleRoom(r, v, null) } : null,
+      rect ? { label: 'Depth', type: 'ft', get: () => HA.dims(r).d, set: v => scaleRoom(r, null, v) } : null,
       { label: 'Wall height', type: 'ft', get: () => r.wallHeight, set: v => { r.wallHeight = U.clamp(v, 5, 30); HA.changed(true); } },
       { label: 'Wall thick.', type: 'ft', get: () => r.wallThickness, set: v => { r.wallThickness = U.clamp(v, .17, 2); HA.changed(true); } },
-      { label: 'Area', type: 'static', get: () => Math.round(Math.abs(U.area(r.points))) + ' sq ft' }
+      {
+        label: 'Area', type: 'static',
+        get: () => Math.round(HA.dims(r).area) + ' sq ft' + (HA.insideMode() ? ' clear' : ' to outside')
+      }
     ]);
 
     h3(box, 'Ceiling');
@@ -258,6 +265,7 @@
   function openProps(box, title, r, o) {
     title.textContent = (o.kind === 'door' ? 'Door' : o.kind === 'window' ? 'Window' : 'Cased opening') + ' — ' + r.name;
     const L = U.edgeLen(r.points, o.edge);
+    const ref = HA.edgeRef(r, o.edge);        // 'along wall' is measured on the face you chose
     add(box, [
       {
         label: 'Type', type: 'select', get: () => o.kind,
@@ -268,11 +276,15 @@
       { label: 'Height', type: 'ft', get: () => o.height, set: v => { o.height = U.clamp(v, .8, 14); HA.changed(true); } },
       { label: 'Sill height', type: 'ft', get: () => o.sill, set: v => { o.sill = U.clamp(v, 0, 12); HA.changed(true); } },
       {
-        label: 'Along wall', type: 'range', min: 0, max: Math.max(1, L), step: .25, unit: 'ft',
-        get: () => o.offset, fmt: v => U.ft(v),
-        set: v => { o.offset = U.clamp(v, o.width / 2, L - o.width / 2); HA.changed(true); }
+        label: 'Along wall', type: 'range', min: 0, max: Math.max(1, ref.len), step: .25, unit: 'ft',
+        get: () => o.offset - ref.s0, fmt: v => U.ft(v),
+        set: v => { o.offset = U.clamp(v + ref.s0, o.width / 2, L - o.width / 2); HA.changed(true); }
       },
-      { label: 'Wall', type: 'static', get: () => 'edge ' + (o.edge + 1) + ' of ' + r.points.length + ', ' + U.ft(L) + ' long' },
+      {
+        label: 'Wall', type: 'static',
+        get: () => 'edge ' + (o.edge + 1) + ' of ' + r.points.length + ', ' + U.ft(ref.len) + ' long'
+          + (HA.insideMode() ? ' (clear)' : '')
+      },
       { label: 'Color', type: 'color', get: () => o.color, set: v => { o.color = v; HA.changed(true); } }
     ]);
     const list = [
@@ -354,9 +366,13 @@
     HA.changed(true);
   }
 
+  /** w/d arrive in whichever mode is active; the polygon is always the outside face */
   function scaleRoom(r, w, d) {
     const b = U.bbox(r.points);
-    const sx = w ? w / Math.max(.1, b.w) : 1, sz = d ? d / Math.max(.1, b.d) : 1;
+    const pad = HA.insideMode() ? 2 * (r.wallThickness || 0) : 0;
+    const tw = w != null ? Math.max(.5, w + pad) : null;
+    const td = d != null ? Math.max(.5, d + pad) : null;
+    const sx = tw ? tw / Math.max(.1, b.w) : 1, sz = td ? td / Math.max(.1, b.d) : 1;
     HA.snapshot();
     r.points.forEach(p => {
       p.x = b.x0 + (p.x - b.x0) * sx;
@@ -506,6 +522,18 @@
   }
   HA.setTool = setTool;
 
+  /** outside-of-walls vs wall-to-wall; one setting drives every dimension in the app */
+  function setDimMode(v) {
+    S.project.dimMode = v === 'inside' ? 'inside' : 'outside';
+    const sel = $('#dimMode');
+    if (sel) sel.value = S.project.dimMode;
+    HA.changed(false);
+    props(); roomList();
+    HA.status(S.project.dimMode === 'inside'
+      ? 'Dimensions are wall-to-wall inside the room. Type the size you measured and the walls are added outside it.'
+      : 'Dimensions are to the outside face of the walls.');
+  }
+
   function showTab(name) {
     $$('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === name));
     $$('.panel').forEach(p => p.classList.toggle('on', p.dataset.panel === name));
@@ -521,6 +549,8 @@
     $$('.tool').forEach(b => b.onclick = () => setTool(b.dataset.tool));
     $$('.tabs button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
     $$('#viewSeg button').forEach(b => b.onclick = () => setView(b.dataset.view));
+    $('#dimMode').value = S.project.dimMode || 'outside';
+    $('#dimMode').onchange = e => setDimMode(e.target.value);
     $('#btnUndo').onclick = HA.undo;
     $('#btnRedo').onclick = HA.redo;
     $('#btnFit').onclick = () => { HA.plan.fit(); HA.view.fit(); };

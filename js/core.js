@@ -89,6 +89,24 @@
       const n = pts.length, p = pts[(i - 1 + n) % n], c = pts[i], q = pts[(i + 1) % n];
       return ((c.x - p.x) * (q.z - c.z) - (c.z - p.z) * (q.x - c.x)) < 0;
     },
+    /** mitred inward offset of a CCW polygon — the inside face of the walls */
+    inset(pts, t) {
+      const n = pts.length, out = [];
+      if (!t) return pts.map(p => ({ x: p.x, z: p.z }));
+      for (let i = 0; i < n; i++) {
+        const p = pts[i], a = pts[(i - 1 + n) % n], b = pts[(i + 1) % n];
+        const l1 = Math.hypot(p.x - a.x, p.z - a.z) || 1;
+        const l2 = Math.hypot(b.x - p.x, b.z - p.z) || 1;
+        const n1 = { x: -(p.z - a.z) / l1, z: (p.x - a.x) / l1 };   // inward normals
+        const n2 = { x: -(b.z - p.z) / l2, z: (b.x - p.x) / l2 };
+        let mx = n1.x + n2.x, mz = n1.z + n2.z;
+        const den = 1 + (n1.x * n2.x + n1.z * n2.z);
+        if (Math.abs(den) < 1e-6) { mx = n1.x; mz = n1.z; }          // doubled-back edge
+        else { mx /= den; mz /= den; }
+        out.push({ x: p.x + mx * t, z: p.z + mz * t });
+      }
+      return out;
+    },
     clone(o) { return JSON.parse(JSON.stringify(o)); }
   };
 
@@ -156,6 +174,39 @@
   HA.furn = () => S.project.furniture;
   HA.room = id => S.project.rooms.find(r => r.id === id);
   HA.item = id => S.project.furniture.find(f => f.id === id);
+
+  /* ── dimensions ──
+     Rooms are drawn as the OUTSIDE face of their walls and the walls build inward,
+     so the finished room is the polygon inset by the wall thickness. `dimMode`
+     decides which of the two every dimension in the app reports. */
+
+  HA.insideMode = () => S.project && S.project.dimMode === 'inside';
+
+  /** {pts, w, d, area, inside} for the room, in whichever mode is active */
+  HA.dims = function (r) {
+    const inside = HA.insideMode();
+    const pts = inside ? U.inset(r.points, r.wallThickness || 0) : r.points;
+    const b = U.bbox(pts);
+    return {
+      pts: pts, inside: inside,
+      w: Math.max(0, b.w), d: Math.max(0, b.d),
+      area: Math.max(0, U.area(pts))
+    };
+  };
+
+  /** where one wall's inside face starts and ends, measured along the outside edge */
+  HA.edgeRef = function (r, i) {
+    const n = r.points.length;
+    const a = r.points[i], b = r.points[(i + 1) % n];
+    const L = Math.hypot(b.x - a.x, b.z - a.z) || 1;
+    const ex = { x: (b.x - a.x) / L, z: (b.z - a.z) / L };
+    if (!HA.insideMode()) return { s0: 0, s1: L, L: L, len: L };
+    const ins = U.inset(r.points, r.wallThickness || 0);
+    const p0 = ins[i], p1 = ins[(i + 1) % n];
+    const s0 = (p0.x - a.x) * ex.x + (p0.z - a.z) * ex.z;
+    const s1 = (p1.x - a.x) * ex.x + (p1.z - a.z) * ex.z;
+    return { s0: s0, s1: s1, L: L, len: Math.max(0, s1 - s0) };
+  };
 
   /** room whose polygon contains this point (last one wins = topmost) */
   HA.roomAt = function (x, z) {
@@ -227,6 +278,7 @@
   HA.migrate = function (p) {
     if (!p || !Array.isArray(p.rooms)) return null;
     p.furniture = p.furniture || [];
+    p.dimMode = p.dimMode === 'inside' ? 'inside' : 'outside';
     p.rooms.forEach(r => {
       const d = HA.newRoom(r.name, r.points.length ? r.points : [{ x: 0, z: 0 }]);
       for (const k in d) if (r[k] === undefined) r[k] = d[k];
@@ -242,7 +294,7 @@
   };
 
   HA.blank = function () {
-    return { name: 'Untitled home', created: Date.now(), rooms: [], furniture: [] };
+    return { name: 'Untitled home', created: Date.now(), dimMode: 'outside', rooms: [], furniture: [] };
   };
 
   /* ─────────────────────────── sample home ─────────────────────────── */

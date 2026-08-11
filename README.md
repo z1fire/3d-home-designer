@@ -85,11 +85,30 @@ js/ui.js        panels, property sheet, keyboard, file open/save
 js/vendor/      three.js r147
 ```
 
+## Inside vs outside dimensions
+
+The **Measure** switch (in the plan toolbar, and on every room's panel) decides whether *every*
+dimension in the app is taken to the outside face of the walls or wall-to-wall inside the room:
+
+| | Outside | Inside (clear) |
+| --- | --- | --- |
+| Room width / depth | framing to framing | what a tape measure reads across the finished room |
+| Area | footprint | finished floor area |
+| Wall length | full outside edge | the clear run between the adjacent walls |
+| Door / window *Along wall* | from the outside corner | from the inside corner |
+| Size shown while dragging a new room | the footprint | what it leaves you inside |
+
+Set it to **inside**, type the sizes you measured, and the walls get added *outside* them — so a
+room you enter as 13′ 2″ × 11′ 8″ really is that wall-to-wall. Switching modes never moves anything;
+it only changes which face the numbers are read from. Interior corners are properly mitred, so
+L-shaped and angled rooms report correctly too.
+
 ## Conventions worth knowing
 
 - Everything is in **feet**; the plan lives in the X/Z plane and Y is up.
-- A room's outline is the **outside face of its walls**, and walls are built inward from it — so two
-  rooms drawn edge-to-edge share a clean, back-to-back wall instead of overlapping.
+- A room's outline is stored as the **outside face of its walls**, and walls are built inward from it —
+  so two rooms drawn edge-to-edge share a clean, back-to-back wall instead of overlapping. The
+  Measure switch is a lens over that; it does not change how anything is stored.
 - Each room owns its own walls, so an interior partition between two rooms is two wall skins.
   Paint them independently — that's usually what you want when remodeling one room at a time.
 

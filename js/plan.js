@@ -141,8 +141,9 @@
   function roomLabel(r, on) {
     const pts = r.points;
     if (pts.length < 3) return;
-    const c = U.centroid(pts), a = Math.abs(U.area(pts));
+    const c = U.centroid(pts);
     if (cam.s > 4) {
+      const dm = HA.dims(r);
       ctx.save();
       ctx.shadowColor = 'rgba(10,12,14,.95)'; ctx.shadowBlur = 6;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -150,8 +151,8 @@
       ctx.font = '600 12px "Segoe UI",sans-serif';
       ctx.fillText(r.name, sx(c.x), sz(c.z) - 7);
       ctx.font = '11px "Segoe UI",sans-serif'; ctx.fillStyle = '#8d959c';
-      const b = U.bbox(pts);
-      const dim = pts.length === 4 ? U.ft(b.w) + ' × ' + U.ft(b.d) : Math.round(a) + ' sq ft';
+      const dim = (pts.length === 4 ? U.ft(dm.w) + ' × ' + U.ft(dm.d) : Math.round(dm.area) + ' sq ft')
+        + (dm.inside ? ' clear' : '');
       ctx.fillText(dim, sx(c.x), sz(c.z) + 8);
       const cl = r.ceiling && r.ceiling.type !== 'flat'
         ? CEIL_NAME[r.ceiling.type] + ' ' + U.ft(r.wallHeight) + '→' + U.ft(r.wallHeight + r.ceiling.rise)
@@ -162,7 +163,7 @@
 
     /* selected: corner handles + edge dimensions */
     if (on) {
-      for (let i = 0; i < pts.length; i++) edgeDim(pts, i);
+      for (let i = 0; i < pts.length; i++) edgeDim(pts, i, HA.edgeRef(r, i).len);
       pts.forEach((p, i) => {
         const isSel = S.sel && S.sel.kind === 'vertex' && S.sel.index === i;
         ctx.beginPath(); ctx.arc(sx(p.x), sz(p.z), isSel ? 6 : 4.5, 0, 7);
@@ -172,10 +173,11 @@
     }
   }
 
-  function edgeDim(pts, i) {
+  function edgeDim(pts, i, shownLen) {
     const a = pts[i], b = pts[(i + 1) % pts.length];
     const L = Math.hypot(b.x - a.x, b.z - a.z);
     if (L * cam.s < 34) return;
+    const label = shownLen === undefined ? L : shownLen;
     const mx = (a.x + b.x) / 2, mz = (a.z + b.z) / 2;
     const nx = -(b.z - a.z) / L, nz = (b.x - a.x) / L;     // inward normal
     const px = sx(mx + nx * .9), py = sz(mz + nz * .9);
@@ -185,7 +187,7 @@
     if (ang > Math.PI / 2 || ang < -Math.PI / 2) ang += Math.PI;
     ctx.rotate(ang);
     ctx.font = '11px "Segoe UI",sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    const txt = U.ft(L), tw = ctx.measureText(txt).width;
+    const txt = U.ft(label), tw = ctx.measureText(txt).width;
     ctx.fillStyle = 'rgba(15,17,19,.85)'; ctx.fillRect(-tw / 2 - 3, -8, tw + 6, 15);
     ctx.fillStyle = '#f0a04b'; ctx.fillText(txt, 0, 0);
     ctx.restore();
@@ -283,7 +285,10 @@
       ctx.strokeRect(sx(Math.min(a.x, b.x)), sz(Math.min(a.z, b.z)),
         Math.abs(b.x - a.x) * cam.s, Math.abs(b.z - a.z) * cam.s);
       ctx.setLineDash([]);
-      label(U.ft(Math.abs(b.x - a.x)) + ' × ' + U.ft(Math.abs(b.z - a.z)),
+      /* you drag the outside footprint; in inside mode report what it leaves you */
+      const pad = HA.insideMode() ? 2 * HA.defaults.wallThickness : 0;
+      const dw = Math.max(0, Math.abs(b.x - a.x) - pad), dd = Math.max(0, Math.abs(b.z - a.z) - pad);
+      label(U.ft(dw) + ' × ' + U.ft(dd) + (pad ? ' clear' : ''),
         (sx(a.x) + sx(b.x)) / 2, (sz(a.z) + sz(b.z)) / 2);
     } else if (draft.kind === 'poly') {
       ctx.beginPath();
