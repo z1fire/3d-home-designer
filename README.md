@@ -23,6 +23,11 @@ Tested in Chrome and Edge. Your work saves itself into the browser automatically
   off a hallway, or a peninsula. Hold **Shift** to lock it to 45°. It is centred on its line with
   two finished faces, both ends are draggable, length and angle are typeable, and doors, windows and
   openings can be cut into it. **Pony wall** drops it to 3′ 6″ for a half wall.
+- **Walls join up.** Drop an end near another wall's end, a room corner, or anywhere along a wall or
+  room face and it snaps exactly onto it — a green ring marks what it caught. The joint then holds:
+  drag either wall and the other follows, and a wall tee'd into the middle of another slides along it
+  as that wall is moved or swung rather than tearing off. Moving a whole room takes its attached
+  partitions with it.
 - Drag a room to move it, drag a corner dot to reshape it, double-click a wall to add a corner,
   Alt+click a corner to remove one.
 - **Door** / **Window** / **Opening** — click a wall to place one, then drag it along the wall.

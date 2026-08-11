@@ -210,6 +210,56 @@
     return { L: L, ex: ex, n: { x: -ex.z, z: ex.x }, t: w.thickness };
   };
 
+  /* ── wall joints ──
+     Walls are joined simply by sharing a point. These find what is attached to
+     what so a joint survives dragging either piece. */
+
+  /** free-wall ends sitting on a point */
+  HA.wallEndsAt = function (x, z, skipId, tol) {
+    tol = tol || .06;
+    const out = [];
+    HA.walls().forEach(w => {
+      if (skipId && w.id === skipId) return;
+      ['a', 'b'].forEach(k => {
+        if (Math.hypot(w[k].x - x, w[k].z - z) <= tol) out.push({ w: w, k: k, ox: w[k].x, oz: w[k].z });
+      });
+    });
+    return out;
+  };
+
+  /** other walls tee'd into the run of this one, with how far along they sit */
+  HA.wallTeesOn = function (w, tol) {
+    tol = tol || .06;
+    const out = [];
+    HA.walls().forEach(o => {
+      if (o.id === w.id) return;
+      ['a', 'b'].forEach(k => {
+        const q = o[k], g = U.seg(q.x, q.z, w.a, w.b);
+        if (g.d <= tol && g.t > .001 && g.t < .999)      // ends-meeting is a different case
+          out.push({ w: o, k: k, t: g.t, ox: q.x, oz: q.z });
+      });
+    });
+    return out;
+  };
+
+  /** free-wall ends landing anywhere on a room's outline (corner or mid-wall) */
+  HA.wallEndsOnRoom = function (room, tol) {
+    tol = tol || .06;
+    const out = [];
+    HA.walls().forEach(w => {
+      ['a', 'b'].forEach(k => {
+        const q = w[k];
+        let d = Infinity;
+        room.points.forEach((a, i) => {
+          const b = room.points[(i + 1) % room.points.length];
+          d = Math.min(d, U.seg(q.x, q.z, a, b).d);
+        });
+        if (d <= tol) out.push({ w: w, k: k, ox: q.x, oz: q.z });
+      });
+    });
+    return out;
+  };
+
   /** default casing (trim) width — 3½", the common ranch/colonial size */
   HA.CASING = 3.5 / 12;
   HA.casingOf = o => (o.casing === undefined || o.casing === null ? HA.CASING : o.casing);

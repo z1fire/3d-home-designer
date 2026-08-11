@@ -20,16 +20,44 @@
 
   const snapOn = () => document.getElementById('snapChk').checked;
   function snap(v) { return snapOn() ? U.round(v, .25) : Math.round(v * 1000) / 1000; }
+  /** last thing we snapped to, drawn as a ring so the join is visible */
+  let snapHit = null;
+
+  /** snap to wall ends and room corners first, then onto any wall face (a T joint) */
   function snapPt(p, skip) {
-    let best = null, bd = 0.7;
-    HA.rooms().forEach(r => {
-      r.points.forEach((q, i) => {
-        if (skip && skip.room === r && skip.index === i) return;
-        const d = Math.hypot(q.x - p.x, q.z - p.z);
-        if (d < bd) { bd = d; best = { x: q.x, z: q.z }; }
+    const TOL_PT = .8, TOL_SEG = .55;
+    let best = null;
+    const take = (x, z, d, type) => { if (!best || d < best.d) best = { x: x, z: z, d: d, type: type }; };
+
+    HA.walls().forEach(w => {
+      ['a', 'b'].forEach(k => {
+        if (skip && skip.wallId === w.id && skip.end === k) return;
+        const q = w[k], d = Math.hypot(q.x - p.x, q.z - p.z);
+        if (d < TOL_PT) take(q.x, q.z, d, 'end');
       });
     });
-    if (best) return best;
+    HA.rooms().forEach(r => r.points.forEach((q, i) => {
+      if (skip && skip.room === r && skip.index === i) return;
+      const d = Math.hypot(q.x - p.x, q.z - p.z);
+      if (d < TOL_PT) take(q.x, q.z, d, 'corner');
+    }));
+
+    if (!best) {                                   // nothing to land on — try a face
+      HA.walls().forEach(w => {
+        if (skip && skip.wallId === w.id) return;
+        const g = U.seg(p.x, p.z, w.a, w.b);
+        if (g.d < TOL_SEG && g.t > .02 && g.t < .98) take(g.x, g.z, g.d, 'wall');
+      });
+      HA.rooms().forEach(r => r.points.forEach((a, i) => {
+        const n = r.points.length, b = r.points[(i + 1) % n];
+        if (skip && skip.room === r && (skip.index === i || skip.index === (i + 1) % n)) return;
+        const g = U.seg(p.x, p.z, a, b);
+        if (g.d < TOL_SEG) take(g.x, g.z, g.d, 'edge');
+      }));
+    }
+
+    if (best) { snapHit = best; return { x: best.x, z: best.z }; }
+    snapHit = null;
     return { x: snap(p.x), z: snap(p.z) };
   }
 
@@ -84,6 +112,12 @@
     HA.furn().forEach(f => item(f, sel && sel.kind === 'furniture' && sel.id === f.id));
     HA.rooms().forEach(r => roomLabel(r, sel && sel.id === r.id));   // labels ride on top
     if (draft) drawDraft();
+    if (snapHit && (draft || drag)) {
+      ctx.beginPath(); ctx.arc(sx(snapHit.x), sz(snapHit.z), 8, 0, 7);
+      ctx.strokeStyle = '#6cc17a'; ctx.lineWidth = 2; ctx.stroke();
+      ctx.beginPath(); ctx.arc(sx(snapHit.x), sz(snapHit.z), 2.5, 0, 7);
+      ctx.fillStyle = '#6cc17a'; ctx.fill();
+    }
     hudCoord();
   };
 
@@ -595,7 +629,8 @@
       }
       HA.select({ kind: 'vertex', id: h.id, index: h.index });
       HA.snapshot();
-      drag = { kind: 'vertex', id: h.id, index: h.index };
+      const v = r.points[h.index];
+      drag = { kind: 'vertex', id: h.id, index: h.index, joined: HA.wallEndsAt(v.x, v.z) };
       return;
     }
     if (h.kind === 'furniture') {
@@ -608,14 +643,25 @@
     if (h.kind === 'wallEnd') {
       HA.select({ kind: 'wallEnd', id: h.id, index: h.index });
       HA.snapshot();
-      drag = { kind: 'wallEnd', id: h.id, index: h.index };
+      const w = HA.wall(h.id), q = h.index ? w.b : w.a;
+      drag = {
+        kind: 'wallEnd', id: h.id, index: h.index,
+        joined: HA.wallEndsAt(q.x, q.z, w.id),     // anything sharing this point comes too
+        tees: HA.wallTeesOn(w)                     // walls tee'd into this one slide along it
+      };
       return;
     }
     if (h.kind === 'swall') {
       HA.select({ kind: 'swall', id: h.id });
       HA.snapshot();
       const w = HA.wall(h.id);
-      drag = { kind: 'swall', id: h.id, x: p.x, z: p.z, a: { x: w.a.x, z: w.a.z }, b: { x: w.b.x, z: w.b.z } };
+      drag = {
+        kind: 'swall', id: h.id, x: p.x, z: p.z,
+        a: { x: w.a.x, z: w.a.z }, b: { x: w.b.x, z: w.b.z },
+        joined: HA.wallEndsAt(w.a.x, w.a.z, w.id)
+          .concat(HA.wallEndsAt(w.b.x, w.b.z, w.id))
+          .concat(HA.wallTeesOn(w))                // tee'd walls travel with it too
+      };
       return;
     }
     if (h.kind === 'opening' && h.wallId) {
@@ -633,13 +679,19 @@
     if (h.kind === 'wall') {
       HA.select({ kind: 'wall', id: h.id, index: h.index });
       HA.snapshot();
-      drag = { kind: 'room', id: h.id, x: p.x, z: p.z, pts: U.clone(HA.room(h.id).points) };
+      drag = {
+        kind: 'room', id: h.id, x: p.x, z: p.z, pts: U.clone(HA.room(h.id).points),
+        joined: HA.wallEndsOnRoom(HA.room(h.id))    // partitions attached to it come along
+      };
       return;
     }
     if (h.kind === 'room') {
       HA.select({ kind: 'room', id: h.id });
       HA.snapshot();
-      drag = { kind: 'room', id: h.id, x: p.x, z: p.z, pts: U.clone(HA.room(h.id).points) };
+      drag = {
+        kind: 'room', id: h.id, x: p.x, z: p.z, pts: U.clone(HA.room(h.id).points),
+        joined: HA.wallEndsOnRoom(HA.room(h.id))    // partitions attached to it come along
+      };
     }
   }
 
@@ -669,12 +721,14 @@
         const r = HA.room(drag.id);
         const q = snapPt(p, { room: r, index: drag.index });
         r.points[drag.index].x = q.x; r.points[drag.index].z = q.z;
+        drag.joined.forEach(j => { j.w[j.k].x = q.x; j.w[j.k].z = q.z; });
         break;
       }
       case 'room': {
         const r = HA.room(drag.id);
         const dx = snap(p.x - drag.x), dz = snap(p.z - drag.z);
         r.points.forEach((pt, i) => { pt.x = drag.pts[i].x + dx; pt.z = drag.pts[i].z + dz; });
+        drag.joined.forEach(j => { j.w[j.k].x = j.ox + dx; j.w[j.k].z = j.oz + dz; });
         break;
       }
       case 'move': {
@@ -692,15 +746,21 @@
       case 'wallEnd': {
         const w = HA.wall(drag.id);
         const other = drag.index ? w.a : w.b;
-        let q = snapPt(p);
+        let q = snapPt(p, { wallId: w.id, end: drag.index ? 'b' : 'a' });
         if (e.shiftKey) {                                   // hold Shift for 45° steps
           const dx = q.x - other.x, dz = q.z - other.z;
           const L = Math.hypot(dx, dz);
           const a = Math.round(Math.atan2(dz, dx) / (Math.PI / 4)) * (Math.PI / 4);
           q = { x: snap(other.x + Math.cos(a) * L), z: snap(other.z + Math.sin(a) * L) };
+          snapHit = null;
         }
-        (drag.index ? w.b : w.a).x = q.x;
-        (drag.index ? w.b : w.a).z = q.z;
+        const end = drag.index ? w.b : w.a;
+        end.x = q.x; end.z = q.z;
+        drag.joined.forEach(j => { j.w[j.k].x = q.x; j.w[j.k].z = q.z; });   // joint holds
+        drag.tees.forEach(j => {                    // a tee keeps its place along the wall
+          j.w[j.k].x = w.a.x + (w.b.x - w.a.x) * j.t;
+          j.w[j.k].z = w.a.z + (w.b.z - w.a.z) * j.t;
+        });
         break;
       }
       case 'swall': {
@@ -708,6 +768,7 @@
         const dx = snap(p.x - drag.x), dz = snap(p.z - drag.z);
         w.a.x = drag.a.x + dx; w.a.z = drag.a.z + dz;
         w.b.x = drag.b.x + dx; w.b.z = drag.b.z + dz;
+        drag.joined.forEach(j => { j.w[j.k].x = j.ox + dx; j.w[j.k].z = j.oz + dz; });
         break;
       }
       case 'wallOpening': {
@@ -747,6 +808,7 @@
     if (draft && draft.kind === 'wall') {
       const a = draft.a, b = draft.b;
       draft = null;
+      snapHit = null;
       if (Math.hypot(b.x - a.x, b.z - a.z) > .5) {
         HA.snapshot();
         const w = HA.newWall(a, b);
@@ -771,8 +833,15 @@
     }
     if (drag) {
       if (drag.kind === 'vertex' || drag.kind === 'room') U.ccw(HA.room(drag.id).points);
+      if (drag.kind === 'wallEnd' && snapHit) {
+        HA.status(snapHit.type === 'end' ? 'Joined to the end of another wall.'
+          : snapHit.type === 'wall' ? 'Joined into the face of another wall.'
+            : snapHit.type === 'corner' ? 'Joined to a room corner.' : 'Joined to a room wall.');
+      }
       if (drag.kind !== 'pan') HA.changed(true);
       drag = null;
+      snapHit = null;
+      P.draw();
     }
   }
 
