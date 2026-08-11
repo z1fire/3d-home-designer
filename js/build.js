@@ -301,6 +301,71 @@
     box(w + cw * 2, cw, .06, cx, o._y1 + cw / 2, -.03);              // exterior side
   }
 
+  /* ─────────── free-standing partition wall ─────────── */
+  B.freeWall = function (w) {
+    const f = HA.wallFrame(w);
+    if (f.L < .1) return null;
+    const t = w.thickness;
+    const ex = new THREE.Vector3(f.ex.x, 0, f.ex.z);
+    const nz = new THREE.Vector3(f.n.x, 0, f.n.z);
+
+    const shape = new THREE.Shape();
+    shape.moveTo(0, 0); shape.lineTo(f.L, 0);
+    shape.lineTo(f.L, w.height); shape.lineTo(0, w.height); shape.lineTo(0, 0);
+
+    const ops = (w.openings || []).filter(o => o.offset > -1 && o.offset < f.L + 1);
+    ops.forEach(o => {
+      const ow = Math.min(o.width, f.L - .2);
+      const u0 = U.clamp(o.offset - ow / 2, .02, f.L - .1);
+      const u1 = U.clamp(o.offset + ow / 2, u0 + .2, f.L - .02);
+      const y0 = Math.max(0, o.sill);
+      const y1 = Math.min(y0 + o.height, w.height - .15);
+      if (y1 <= y0 + .1) return;
+      o._u0 = u0; o._u1 = u1; o._y0 = y0; o._y1 = y1;
+      const h = new THREE.Path();
+      h.moveTo(u0, y0); h.lineTo(u1, y0); h.lineTo(u1, y1); h.lineTo(u0, y1); h.lineTo(u0, y0);
+      shape.holes.push(h);
+    });
+
+    const geo = new THREE.ExtrudeGeometry(shape, { depth: t, bevelEnabled: false, curveSegments: 2 });
+    const mesh = new THREE.Mesh(geo, [
+      new THREE.MeshStandardMaterial({ color: new THREE.Color(w.color), roughness: .93 }),
+      new THREE.MeshStandardMaterial({ color: new THREE.Color(w.trimColor || '#F6F6F2'), roughness: .8 })
+    ]);
+    mesh.castShadow = mesh.receiveShadow = true;
+    mesh.userData = { kind: 'swall', wallId: w.id };
+
+    const g = new THREE.Group();
+    g.add(mesh);
+
+    if (w.baseboard) {                                   // both faces are finished
+      const bbMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(w.trimColor || '#F6F6F2'), roughness: .7 });
+      const cuts = ops.filter(o => o._y0 !== undefined && o._y0 < .1)
+        .map(o => [o._u0 - .06, o._u1 + .06]).sort((a, b) => a[0] - b[0]);
+      const run = (a, b) => {
+        if (b - a < .1) return;
+        [-.03, t + .03].forEach(z => {
+          const m = new THREE.Mesh(new THREE.BoxGeometry(b - a, .48, .06), bbMat);
+          m.position.set((a + b) / 2, .24, z);
+          m.receiveShadow = true;
+          g.add(m);
+        });
+      };
+      let u = 0;
+      cuts.forEach(c => { run(u, Math.max(u, c[0])); u = Math.max(u, c[1]); });
+      run(u, f.L);
+    }
+
+    const shim = { wallColor: w.color, wallColors: {} };  // for trimless reveals
+    ops.forEach(o => { if (o._y0 !== undefined) buildOpening(g, shim, o, t); });
+
+    const M = new THREE.Matrix4().makeBasis(ex, UP, nz)
+      .setPosition(w.a.x - f.n.x * t / 2, 0, w.a.z - f.n.z * t / 2);   // centred on the line
+    g.applyMatrix4(M);
+    g.userData = { kind: 'freeWallGroup', wallId: w.id };
+    return g;
+  };
+
   /* ─────────── whole project ─────────── */
   /** builds everything into `root`; returns { pick:[], walls:[], items:[] } */
   B.house = function (root, opts) {
@@ -325,6 +390,13 @@
         wg.traverse(o => { if (o.isMesh && o.userData.kind === 'wall') out.pick.push(o); });
       }
       root.add(rg);
+    });
+
+    HA.walls().forEach(w => {
+      const g = B.freeWall(w);
+      if (!g) return;
+      root.add(g);
+      g.traverse(o => { if (o.isMesh && o.userData.kind === 'swall') out.pick.push(o); });
     });
 
     HA.furn().forEach(it => {

@@ -213,6 +213,7 @@
           return;
         }
         if (ud.kind === 'wall') pend = { kind: 'wall', id: ud.roomId, index: ud.edge };
+        else if (ud.kind === 'swall') pend = { kind: 'swall', id: ud.wallId };
         else if (ud.kind === 'floor' || ud.kind === 'ceiling') pend = { kind: 'room', id: ud.roomId };
       } else pend = null;                          // click on the sky clears the selection
     }
@@ -286,6 +287,14 @@
 
   function paint(obj) {
     const ud = obj.userData;
+    if (ud.kind === 'swall') {                    // free-standing partition
+      const w = HA.wall(ud.wallId);
+      if (!w) return;
+      HA.snapshot();
+      w.color = S.paintColor;
+      HA.status('Painted the partition wall — ' + S.paintName);
+      return HA.changed(true);
+    }
     const r = HA.room(ud.roomId);
     if (!r) return;
     HA.snapshot();

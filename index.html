@@ -45,10 +45,11 @@
       <button class="tool on" data-tool="select" title="Select / move — V"><b>▶</b>Select</button>
       <button class="tool" data-tool="rect"   title="Drag out a rectangular room — 1"><b>▭</b>Room</button>
       <button class="tool" data-tool="poly"   title="Draw any room shape corner by corner — 2"><b>⬡</b>Shape</button>
-      <button class="tool" data-tool="door"   title="Add a door — click a wall — 3"><b>🚪</b>Door</button>
-      <button class="tool" data-tool="window" title="Add a window — click a wall — 4"><b>▤</b>Window</button>
-      <button class="tool" data-tool="opening" title="Cut an open pass-through — click a wall — 5"><b>⊓</b>Opening</button>
-      <button class="tool" data-tool="paint"  title="Paint a surface — 6 or B"><b>🖌</b>Paint</button>
+      <button class="tool" data-tool="wall"   title="Drag out a single partition wall — 3"><b>▬</b>Wall</button>
+      <button class="tool" data-tool="door"   title="Add a door — click a wall — 4"><b>🚪</b>Door</button>
+      <button class="tool" data-tool="window" title="Add a window — click a wall — 5"><b>▤</b>Window</button>
+      <button class="tool" data-tool="opening" title="Cut an open pass-through — click a wall — 6"><b>⊓</b>Opening</button>
+      <button class="tool" data-tool="paint"  title="Paint a surface — 7 or B"><b>🖌</b>Paint</button>
     </div>
 
     <nav class="tabs">
@@ -126,6 +127,9 @@
         <h3>Floor plan (left)</h3>
         <ul>
           <li><b>Room</b> tool — drag out a rectangle. <b>Shape</b> tool — click corners, click the first one (or press Enter) to close.</li>
+          <li><b>Wall</b> tool — drag out a single partition wall that isn't part of any room (hold
+              <b>Shift</b> to lock it to 45°). Drag either end dot to move it, and cut a door,
+              window or opening into it from its panel. Drop it to 3′ 6″ with <b>Pony wall</b>.</li>
           <li><b>Select</b> tool — drag a room to move it, drag a corner dot to reshape, drag furniture to move it.</li>
           <li>Double-click a wall to add a corner. Alt+click a corner deletes it.</li>
           <li><b>Door</b> / <b>Window</b> / <b>Opening</b> — click on a wall to place, then drag it along the wall.</li>
@@ -136,7 +140,7 @@
         </ul>
         <h3>Keys</h3>
         <ul>
-          <li><b>V</b> select · <b>1</b> room · <b>2</b> shape · <b>3</b> door · <b>4</b> window · <b>5</b> opening · <b>6</b> paint</li>
+          <li><b>V</b> select · <b>1</b> room · <b>2</b> shape · <b>3</b> wall · <b>4</b> door · <b>5</b> window · <b>6</b> opening · <b>7</b> paint</li>
           <li><b>R</b> / <b>[</b> <b>]</b> rotate the selected furniture 15° · <b>Del</b> delete · <b>Ctrl+D</b> duplicate</li>
           <li><b>Ctrl+Z</b> undo · <b>Ctrl+Y</b> redo · <b>Ctrl+S</b> save a file · <b>0</b> fit both views · <b>F</b> walkthrough</li>
           <li>Type sizes as <code>12'</code>, <code>12' 6"</code>, <code>12.5</code> or <code>30"</code> — all work.</li>

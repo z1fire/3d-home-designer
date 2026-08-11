@@ -187,6 +187,29 @@
     }, opt || {});
   };
 
+  /** a free-standing wall: a partition that isn't part of any room outline.
+      Unlike room walls it is centred on its line, and it has two finished faces. */
+  HA.newWall = function (a, b, opt) {
+    const d = HA.defaults;
+    return Object.assign({
+      id: U.uid('w'),
+      a: { x: a.x, z: a.z }, b: { x: b.x, z: b.z },
+      thickness: 5 / 12, height: d.wallHeight,
+      color: d.wallColor, trimColor: d.trimColor,
+      baseboard: true, openings: []
+    }, opt || {});
+  };
+  HA.walls = () => S.project.walls || (S.project.walls = []);
+  HA.wall = id => HA.walls().find(w => w.id === id);
+  HA.wallLen = w => Math.hypot(w.b.x - w.a.x, w.b.z - w.a.z);
+  HA.wallAngle = w => Math.atan2(w.b.z - w.a.z, w.b.x - w.a.x) * 180 / Math.PI;
+  /** unit vector along the wall and the normal to one face */
+  HA.wallFrame = function (w) {
+    const L = HA.wallLen(w) || 1;
+    const ex = { x: (w.b.x - w.a.x) / L, z: (w.b.z - w.a.z) / L };
+    return { L: L, ex: ex, n: { x: -ex.z, z: ex.x }, t: w.thickness };
+  };
+
   /** default casing (trim) width — 3½", the common ranch/colonial size */
   HA.CASING = 3.5 / 12;
   HA.casingOf = o => (o.casing === undefined || o.casing === null ? HA.CASING : o.casing);
@@ -345,9 +368,13 @@
     HA.emit('redraw');
   };
 
+  function shot() {
+    return U.clone({ rooms: S.project.rooms, furniture: S.project.furniture, walls: HA.walls() });
+  }
+
   /** call BEFORE mutating the model */
   HA.snapshot = function () {
-    S.undo.push(U.clone({ rooms: S.project.rooms, furniture: S.project.furniture }));
+    S.undo.push(shot());
     if (S.undo.length > 60) S.undo.shift();
     S.redo.length = 0;
   };
@@ -362,18 +389,19 @@
   function apply(snap) {
     S.project.rooms = snap.rooms;
     S.project.furniture = snap.furniture;
+    S.project.walls = snap.walls || [];
     S.sel = null;
     HA.emit('select', null);
     HA.changed(true);
   }
   HA.undo = function () {
     if (!S.undo.length) return HA.status('Nothing to undo');
-    S.redo.push(U.clone({ rooms: S.project.rooms, furniture: S.project.furniture }));
+    S.redo.push(shot());
     apply(S.undo.pop()); HA.status('Undo');
   };
   HA.redo = function () {
     if (!S.redo.length) return HA.status('Nothing to redo');
-    S.undo.push(U.clone({ rooms: S.project.rooms, furniture: S.project.furniture }));
+    S.undo.push(shot());
     apply(S.redo.pop()); HA.status('Redo');
   };
 
@@ -402,7 +430,16 @@
   HA.migrate = function (p) {
     if (!p || !Array.isArray(p.rooms)) return null;
     p.furniture = p.furniture || [];
+    p.walls = p.walls || [];
     p.dimMode = p.dimMode === 'inside' ? 'inside' : 'outside';
+    p.walls.forEach(w => {
+      const d = HA.newWall(w.a || { x: 0, z: 0 }, w.b || { x: 1, z: 0 });
+      for (const k in d) if (w[k] === undefined) w[k] = d[k];
+      (w.openings || []).forEach(o => {
+        o.id = o.id || U.uid('o');
+        if (o.casing === undefined) o.casing = HA.CASING;
+      });
+    });
     p.rooms.forEach(r => {
       const d = HA.newRoom(r.name, r.points.length ? r.points : [{ x: 0, z: 0 }]);
       for (const k in d) if (r[k] === undefined) r[k] = d[k];
@@ -437,7 +474,7 @@
   };
 
   HA.blank = function () {
-    return { name: 'Untitled home', created: Date.now(), dimMode: 'outside', rooms: [], furniture: [] };
+    return { name: 'Untitled home', created: Date.now(), dimMode: 'outside', rooms: [], furniture: [], walls: [] };
   };
 
   /* ─────────────────────────── sample home ─────────────────────────── */

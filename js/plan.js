@@ -80,6 +80,7 @@
     grid();
     const sel = S.sel;
     HA.rooms().forEach(r => room(r, sel && sel.id === r.id));
+    HA.walls().forEach(w => freeWall(w, sel && sel.id === w.id));
     HA.furn().forEach(f => item(f, sel && sel.kind === 'furniture' && sel.id === f.id));
     HA.rooms().forEach(r => roomLabel(r, sel && sel.id === r.id));   // labels ride on top
     if (draft) drawDraft();
@@ -193,6 +194,53 @@
     ctx.restore();
   }
 
+  /** a free-standing partition wall */
+  function freeWall(w, on) {
+    const f = HA.wallFrame(w);
+    if (f.L < .05) return;
+    const p = (u, v) => ({ x: w.a.x + f.ex.x * u + f.n.x * v, z: w.a.z + f.ex.z * u + f.n.z * v });
+    const half = f.t / 2;
+    path([p(0, -half), p(f.L, -half), p(f.L, half), p(0, half)]);
+    ctx.fillStyle = on ? '#cfd6dd' : '#9aa3ac';
+    ctx.fill();
+    ctx.lineWidth = on ? 2 : 1;
+    ctx.strokeStyle = on ? '#5aa9e6' : '#4a525a';
+    ctx.stroke();
+
+    (w.openings || []).forEach(o => {
+      const ow = Math.min(o.width, f.L - .1);
+      const u = U.clamp(o.offset, ow / 2, f.L - ow / 2);
+      const c = [p(u - ow / 2, -half - .02), p(u + ow / 2, -half - .02),
+      p(u + ow / 2, half + .02), p(u - ow / 2, half + .02)];
+      const osel = S.sel && S.sel.kind === 'opening' && S.sel.id === o.id;
+      path(c);
+      ctx.fillStyle = o.kind === 'window' ? '#2b3d47' : '#0f1113';
+      ctx.fill();
+      ctx.lineWidth = osel ? 2 : 1;
+      ctx.strokeStyle = osel ? '#f0a04b' : (o.kind === 'window' ? '#7fb6c9' : '#8d959c');
+      ctx.stroke();
+      if (o.kind === 'door') {
+        const sw = o.swing === -1 ? -1 : 1;
+        const h = p(u - sw * ow / 2, half);
+        const a0 = Math.atan2(f.n.z, f.n.x);
+        ctx.beginPath();
+        ctx.moveTo(sx(h.x), sz(h.z));
+        ctx.arc(sx(h.x), sz(h.z), ow * cam.s, a0 - (sw > 0 ? 0 : Math.PI / 2), a0 + (sw > 0 ? Math.PI / 2 : 0));
+        ctx.strokeStyle = 'rgba(207,214,221,.55)'; ctx.lineWidth = 1; ctx.stroke();
+      }
+    });
+
+    if (on) {
+      edgeDim([w.a, w.b], 0, f.L);
+      [w.a, w.b].forEach((q, i) => {
+        const isEnd = S.sel && S.sel.kind === 'wallEnd' && S.sel.index === i;
+        ctx.beginPath(); ctx.arc(sx(q.x), sz(q.z), isEnd ? 6 : 4.5, 0, 7);
+        ctx.fillStyle = isEnd ? '#f0a04b' : '#5aa9e6'; ctx.fill();
+        ctx.lineWidth = 1.5; ctx.strokeStyle = '#0f1113'; ctx.stroke();
+      });
+    }
+  }
+
   /** geometry of an opening in plan space */
   function opRect(r, o) {
     const pts = r.points, n = pts.length;
@@ -290,6 +338,18 @@
       const dw = Math.max(0, Math.abs(b.x - a.x) - pad), dd = Math.max(0, Math.abs(b.z - a.z) - pad);
       label(U.ft(dw) + ' × ' + U.ft(dd) + (pad ? ' clear' : ''),
         (sx(a.x) + sx(b.x)) / 2, (sz(a.z) + sz(b.z)) / 2);
+    } else if (draft.kind === 'wall') {
+      const a = draft.a, b = draft.b, t = HA.defaults.wallThickness;
+      const L = Math.hypot(b.x - a.x, b.z - a.z);
+      ctx.setLineDash([]);
+      ctx.lineWidth = Math.max(2, t * cam.s);
+      ctx.strokeStyle = 'rgba(90,169,230,.75)';
+      ctx.beginPath(); ctx.moveTo(sx(a.x), sz(a.z)); ctx.lineTo(sx(b.x), sz(b.z)); ctx.stroke();
+      if (L > .1) {
+        let ang = Math.round(Math.atan2(b.z - a.z, b.x - a.x) * 180 / Math.PI);
+        if (ang < 0) ang += 360;
+        label(U.ft(L) + '  ' + ang + '°', (sx(a.x) + sx(b.x)) / 2, (sz(a.z) + sz(b.z)) / 2 - 14);
+      }
     } else if (draft.kind === 'poly') {
       ctx.beginPath();
       draft.pts.forEach((p, i) => i ? ctx.lineTo(sx(p.x), sz(p.z)) : ctx.moveTo(sx(p.x), sz(p.z)));
@@ -340,6 +400,24 @@
         if (Math.hypot(x - hx, z - hz) < tol) return { kind: 'rotate', id: f.id };
       }
     }
+    /* free-standing walls: ends first, then the body, then anything cut into it */
+    const ws = HA.walls();
+    for (let i = ws.length - 1; i >= 0; i--) {
+      const w = ws[i];
+      if (Math.hypot(x - w.a.x, z - w.a.z) < tol) return { kind: 'wallEnd', id: w.id, index: 0 };
+      if (Math.hypot(x - w.b.x, z - w.b.z) < tol) return { kind: 'wallEnd', id: w.id, index: 1 };
+    }
+    for (let i = ws.length - 1; i >= 0; i--) {
+      const w = ws[i], f = HA.wallFrame(w);
+      const g = U.seg(x, z, w.a, w.b);
+      if (g.d > Math.max(tol, f.t)) continue;
+      const u = g.t * f.L;
+      for (const o of (w.openings || [])) {
+        if (Math.abs(u - o.offset) <= o.width / 2) return { kind: 'opening', id: o.id, wallId: w.id };
+      }
+      return { kind: 'swall', id: w.id, at: u };
+    }
+
     const fs = HA.furn();
     for (let i = fs.length - 1; i >= 0; i--) {
       const f = fs[i], def = HA.furniture.def(f.type); if (!def) continue;
@@ -410,6 +488,8 @@
 
     if (tool === 'rect') { draft = { kind: 'rect', a: { x: snap(p.x), z: snap(p.z) }, b: { x: snap(p.x), z: snap(p.z) } }; return; }
 
+    if (tool === 'wall') { draft = { kind: 'wall', a: snapPt(p), b: snapPt(p) }; return; }
+
     if (tool === 'poly') {
       const q = snapPt(p);
       if (!draft) draft = { kind: 'poly', pts: [q] };
@@ -422,6 +502,23 @@
     }
 
     if (tool === 'door' || tool === 'window' || tool === 'opening') {
+      /* a free-standing wall under the pointer wins — it has no room to belong to */
+      let fw = null;
+      HA.walls().forEach(w => {
+        const g = U.seg(p.x, p.z, w.a, w.b), f = HA.wallFrame(w);
+        if (g.d < Math.max(1, f.t * 2) && (!fw || g.d < fw.d)) fw = { d: g.d, w: w, at: g.t * f.L, L: f.L };
+      });
+      if (fw) {
+        HA.snapshot();
+        const o = HA.newOpening(tool, 0, fw.at);
+        o.width = Math.min(o.width, Math.max(1, fw.L - .4));
+        o.offset = U.clamp(fw.at, o.width / 2, fw.L - o.width / 2);
+        fw.w.openings.push(o);
+        HA.select({ kind: 'opening', id: o.id, wallId: fw.w.id });
+        HA.changed(true);
+        drag = { kind: 'wallOpening', id: o.id, wallId: fw.w.id };
+        return;
+      }
       const inRoom = HA.roomAt(p.x, p.z);
       let best = null;
       HA.rooms().forEach(r => {
@@ -451,6 +548,15 @@
     }
 
     if (tool === 'paint') {
+      let fw = null;
+      HA.walls().forEach(w => {
+        const g = U.seg(p.x, p.z, w.a, w.b), f = HA.wallFrame(w);
+        if (g.d < Math.max(.5, f.t) && (!fw || g.d < fw.d)) fw = { d: g.d, w: w };
+      });
+      if (fw) {
+        HA.snapshot(); fw.w.color = S.paintColor; HA.changed(true);
+        return HA.status('Painted the partition wall — ' + S.paintName);
+      }
       let best = null;
       HA.rooms().forEach(r => {
         r.points.forEach((a, k) => {
@@ -499,6 +605,25 @@
       drag = { kind: 'move', id: h.id, dx: p.x - f.x, dz: p.z - f.z };
       return;
     }
+    if (h.kind === 'wallEnd') {
+      HA.select({ kind: 'wallEnd', id: h.id, index: h.index });
+      HA.snapshot();
+      drag = { kind: 'wallEnd', id: h.id, index: h.index };
+      return;
+    }
+    if (h.kind === 'swall') {
+      HA.select({ kind: 'swall', id: h.id });
+      HA.snapshot();
+      const w = HA.wall(h.id);
+      drag = { kind: 'swall', id: h.id, x: p.x, z: p.z, a: { x: w.a.x, z: w.a.z }, b: { x: w.b.x, z: w.b.z } };
+      return;
+    }
+    if (h.kind === 'opening' && h.wallId) {
+      HA.select({ kind: 'opening', id: h.id, wallId: h.wallId });
+      HA.snapshot();
+      drag = { kind: 'wallOpening', id: h.id, wallId: h.wallId };
+      return;
+    }
     if (h.kind === 'opening') {
       HA.select({ kind: 'opening', id: h.id, roomId: h.roomId });
       HA.snapshot();
@@ -522,7 +647,16 @@
     const p = evPt(e);
     mouse = p;
     if (!drag) {
-      if (draft) P.draw();
+      if (draft && draft.kind === 'wall') {
+        let q = snapPt(p);
+        if (e.shiftKey) {                                    // Shift constrains to 45°
+          const dx = q.x - draft.a.x, dz = q.z - draft.a.z, L = Math.hypot(dx, dz);
+          const ang = Math.round(Math.atan2(dz, dx) / (Math.PI / 4)) * (Math.PI / 4);
+          q = { x: snap(draft.a.x + Math.cos(ang) * L), z: snap(draft.a.z + Math.sin(ang) * L) };
+        }
+        draft.b = q;
+        P.draw();
+      } else if (draft) P.draw();
       else { hover = pick(p.x, p.z); cv.style.cursor = cursorFor(hover); hudCoord(); }
       return;
     }
@@ -555,6 +689,36 @@
         f.rot = ((a % 360) + 360) % 360;
         break;
       }
+      case 'wallEnd': {
+        const w = HA.wall(drag.id);
+        const other = drag.index ? w.a : w.b;
+        let q = snapPt(p);
+        if (e.shiftKey) {                                   // hold Shift for 45° steps
+          const dx = q.x - other.x, dz = q.z - other.z;
+          const L = Math.hypot(dx, dz);
+          const a = Math.round(Math.atan2(dz, dx) / (Math.PI / 4)) * (Math.PI / 4);
+          q = { x: snap(other.x + Math.cos(a) * L), z: snap(other.z + Math.sin(a) * L) };
+        }
+        (drag.index ? w.b : w.a).x = q.x;
+        (drag.index ? w.b : w.a).z = q.z;
+        break;
+      }
+      case 'swall': {
+        const w = HA.wall(drag.id);
+        const dx = snap(p.x - drag.x), dz = snap(p.z - drag.z);
+        w.a.x = drag.a.x + dx; w.a.z = drag.a.z + dz;
+        w.b.x = drag.b.x + dx; w.b.z = drag.b.z + dz;
+        break;
+      }
+      case 'wallOpening': {
+        const w = HA.wall(drag.wallId);
+        const o = w && w.openings.find(k => k.id === drag.id);
+        if (!o) break;
+        const f = HA.wallFrame(w);
+        const g = U.seg(p.x, p.z, w.a, w.b);
+        o.offset = U.clamp(snap(g.t * f.L), o.width / 2, f.L - o.width / 2);
+        break;
+      }
       case 'opening': {
         const r = HA.room(drag.roomId);
         const o = r.openings.find(k => k.id === drag.id);
@@ -574,11 +738,24 @@
     }
     if (drag.kind === 'pan') P.draw();
     else { HA.changed(false); }
-    if (drag.kind === 'vertex' || drag.kind === 'room') HA.emit('props');
+    if (drag.kind === 'vertex' || drag.kind === 'room' ||
+      drag.kind === 'wallEnd' || drag.kind === 'swall') HA.emit('props');
     hudCoord();
   }
 
   function up(e) {
+    if (draft && draft.kind === 'wall') {
+      const a = draft.a, b = draft.b;
+      draft = null;
+      if (Math.hypot(b.x - a.x, b.z - a.z) > .5) {
+        HA.snapshot();
+        const w = HA.newWall(a, b);
+        HA.walls().push(w);
+        HA.select({ kind: 'swall', id: w.id });
+        HA.changed(true);
+        HA.emit('tool', 'select');
+      } else P.draw();
+    }
     if (draft && draft.kind === 'rect') {
       const a = draft.a, b = { x: snap(mouse.x), z: snap(mouse.z) };
       draft = null;
@@ -641,8 +818,8 @@
 
   function cursorFor(h) {
     if (!h) return S.tool === 'select' ? 'default' : 'crosshair';
-    if (h.kind === 'vertex' || h.kind === 'rotate') return 'grab';
-    if (h.kind === 'furniture' || h.kind === 'opening' || h.kind === 'room') return 'move';
+    if (h.kind === 'vertex' || h.kind === 'rotate' || h.kind === 'wallEnd') return 'grab';
+    if (h.kind === 'furniture' || h.kind === 'opening' || h.kind === 'room' || h.kind === 'swall') return 'move';
     if (h.kind === 'wall') return S.tool === 'select' ? 'move' : 'crosshair';
     return 'default';
   }

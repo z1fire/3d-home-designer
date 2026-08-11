@@ -19,6 +19,10 @@ Tested in Chrome and Edge. Your work saves itself into the browser automatically
 
 **Floor plan (left)**
 - **Room** drags out a rectangle; **Shape** clicks out any polygon (L-shaped rooms, bays, etc.).
+- **Wall** drags out a single partition wall that belongs to no room — for dividing a space, closing
+  off a hallway, or a peninsula. Hold **Shift** to lock it to 45°. It is centred on its line with
+  two finished faces, both ends are draggable, length and angle are typeable, and doors, windows and
+  openings can be cut into it. **Pony wall** drops it to 3′ 6″ for a half wall.
 - Drag a room to move it, drag a corner dot to reshape it, double-click a wall to add a corner,
   Alt+click a corner to remove one.
 - **Door** / **Window** / **Opening** — click a wall to place one, then drag it along the wall.
@@ -80,7 +84,7 @@ a vaulted ceiling's height automatically.
 
 ## Keys
 
-`V` select · `1` room · `2` shape · `3` door · `4` window · `5` opening · `6` paint
+`V` select · `1` room · `2` shape · `3` wall · `4` door · `5` window · `6` opening · `7` paint
 `R` `[` `]` rotate selection · `Del` delete · `Ctrl+D` duplicate
 `Ctrl+Z` / `Ctrl+Y` undo / redo · `Ctrl+S` save file · `0` fit views · `F` walkthrough · `Esc` cancel
 
