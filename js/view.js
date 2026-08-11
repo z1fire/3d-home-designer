@@ -98,6 +98,7 @@
   function allPts() {
     const p = [];
     HA.rooms().forEach(r => p.push.apply(p, r.points));
+    HA.walls().forEach(w => p.push(w.a, w.b));
     return p;
   }
 

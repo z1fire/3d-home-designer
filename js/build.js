@@ -302,16 +302,42 @@
   }
 
   /* ─────────── free-standing partition wall ─────────── */
+
+  /** How far to run an end past its point so a joint builds solid instead of
+      leaving a notch. For two walls meeting at a corner, each has to reach the
+      other's far face: half the other's thickness × tan(half the turn). Held a
+      hair short so the end cap stays buried and can't z-fight that face. */
+  function jointRun(w, endKey) {
+    const f = HA.wallFrame(w), p = w[endKey];
+    const toward = endKey === 'b' ? f.ex : { x: -f.ex.x, z: -f.ex.z };
+    let run = 0;
+    HA.walls().forEach(o => {
+      if (o.id === w.id) return;
+      ['a', 'b'].forEach(k => {
+        if (Math.hypot(o[k].x - p.x, o[k].z - p.z) > .06) return;     // not this joint
+        const fo = HA.wallFrame(o);
+        const away = k === 'a' ? fo.ex : { x: -fo.ex.x, z: -fo.ex.z };
+        const turn = Math.acos(U.clamp(toward.x * away.x + toward.z * away.z, -1, 1));
+        const e = (o.thickness / 2) * Math.tan(Math.min(turn, 2.6) / 2);
+        run = Math.max(run, U.clamp(e, 0, o.thickness * 3));
+      });
+    });
+    return Math.max(0, run - .01);
+  }
+
+  B.jointRun = jointRun;
+
   B.freeWall = function (w) {
     const f = HA.wallFrame(w);
     if (f.L < .1) return null;
     const t = w.thickness;
+    const e0 = jointRun(w, 'a'), e1 = jointRun(w, 'b');
     const ex = new THREE.Vector3(f.ex.x, 0, f.ex.z);
     const nz = new THREE.Vector3(f.n.x, 0, f.n.z);
 
     const shape = new THREE.Shape();
-    shape.moveTo(0, 0); shape.lineTo(f.L, 0);
-    shape.lineTo(f.L, w.height); shape.lineTo(0, w.height); shape.lineTo(0, 0);
+    shape.moveTo(-e0, 0); shape.lineTo(f.L + e1, 0);
+    shape.lineTo(f.L + e1, w.height); shape.lineTo(-e0, w.height); shape.lineTo(-e0, 0);
 
     const ops = (w.openings || []).filter(o => o.offset > -1 && o.offset < f.L + 1);
     ops.forEach(o => {
@@ -351,9 +377,9 @@
           g.add(m);
         });
       };
-      let u = 0;
+      let u = -e0;                                       // carry the baseboard into the joint
       cuts.forEach(c => { run(u, Math.max(u, c[0])); u = Math.max(u, c[1]); });
-      run(u, f.L);
+      run(u, f.L + e1);
     }
 
     const shim = { wallColor: w.color, wallColors: {} };  // for trimless reveals

@@ -24,7 +24,9 @@ Tested in Chrome and Edge. Your work saves itself into the browser automatically
   two finished faces, both ends are draggable, length and angle are typeable, and doors, windows and
   openings can be cut into it. **Pony wall** drops it to 3′ 6″ for a half wall.
 - **Walls join up.** Drop an end near another wall's end, a room corner, or anywhere along a wall or
-  room face and it snaps exactly onto it — a green ring marks what it caught. The joint then holds:
+  room face and it snaps exactly onto it — a green ring marks what it caught. Joined walls then
+  **build as one structure**: each end is mitred into the joint so a corner comes out solid instead
+  of leaving a notch, and baseboards run through. The joint also holds when you edit:
   drag either wall and the other follows, and a wall tee'd into the middle of another slides along it
   as that wall is moved or swung rather than tearing off. Moving a whole room takes its attached
   partitions with it.

@@ -91,6 +91,7 @@
   P.fit = function () {
     const pts = [];
     HA.rooms().forEach(r => pts.push.apply(pts, r.points));
+    HA.walls().forEach(w => { pts.push(w.a, w.b); });
     HA.furn().forEach(f => pts.push({ x: f.x, z: f.z }));
     if (!pts.length) { cam.ox = 18; cam.oz = 15; cam.s = 14; return P.draw(); }
     const b = U.bbox(pts);
@@ -234,7 +235,9 @@
     if (f.L < .05) return;
     const p = (u, v) => ({ x: w.a.x + f.ex.x * u + f.n.x * v, z: w.a.z + f.ex.z * u + f.n.z * v });
     const half = f.t / 2;
-    path([p(0, -half), p(f.L, -half), p(f.L, half), p(0, half)]);
+    /* run the ends into their joints, the same as the 3D build does */
+    const e0 = HA.build.jointRun(w, 'a'), e1 = HA.build.jointRun(w, 'b');
+    path([p(-e0, -half), p(f.L + e1, -half), p(f.L + e1, half), p(-e0, half)]);
     ctx.fillStyle = on ? '#cfd6dd' : '#9aa3ac';
     ctx.fill();
     ctx.lineWidth = on ? 2 : 1;
