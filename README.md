@@ -60,8 +60,11 @@ click it to flip through the materials.
 *Rise* is how far the peak sits above the wall plate; *Direction* rotates the ridge. Wall tops —
 including gable ends — are rebuilt to follow whatever ceiling you choose.
 
-**Furnishing** — ~45 procedural pieces (sofas, beds, cabinets, appliances, fixtures, stairs,
-ceiling fans and lights). Every piece can be resized, recolored, raised off the floor, and rotated.
+**Furnishing** — 60 procedural pieces across Living, Dining, Kitchen, Bedroom, **Office**, Bath and
+Structure: sofas, beds, cabinets, appliances, fixtures, stairs, ceiling fans and lights, plus a full
+office set (L-shaped / executive / standing desks, task and guest chairs, monitors, printer, file
+cabinets, credenza, storage, shelving, conference table, whiteboard and an equipment rack).
+Every piece can be resized, recolored, raised off the floor, and rotated.
 *Against wall* snaps a piece back against the nearest wall of the room it's in; *Into corner* tucks
 it into the nearest corner with its back to one wall and its side to the other, keeping whichever of
 the two orientations is closest to how it is already turned. Ceiling-hung items follow a vaulted

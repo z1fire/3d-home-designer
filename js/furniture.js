@@ -84,8 +84,26 @@
     { t: 'nightstand', n: 'Nightstand', g: 'Bedroom', w: 1.8, d: 1.5, h: 2.1, c: '#7B5B41', build: cabinet },
     { t: 'dresser', n: 'Dresser', g: 'Bedroom', w: 5, d: 1.7, h: 2.9, c: '#7B5B41', build: cabinet },
     { t: 'wardrobe', n: 'Wardrobe', g: 'Bedroom', w: 4, d: 2, h: 7, c: '#7B5B41', build: wardrobe },
-    { t: 'desk', n: 'Desk', g: 'Bedroom', w: 4.5, d: 2.2, h: 2.5, c: '#8B5E3C', build: table },
-    { t: 'officeChair', n: 'Office chair', g: 'Bedroom', w: 2, d: 2, h: 3.4, c: '#2E3236', build: officeChair },
+
+    /* Office */
+    { t: 'desk', n: 'Desk', g: 'Office', w: 4.5, d: 2.2, h: 2.5, c: '#8B5E3C', build: table },
+    { t: 'deskL', n: 'L-shaped desk', g: 'Office', w: 5.5, d: 5, h: 2.5, c: '#7B5B41', build: deskL },
+    { t: 'deskExec', n: 'Executive desk', g: 'Office', w: 6, d: 3, h: 2.5, c: '#6E4B33', build: deskExec },
+    { t: 'deskStand', n: 'Standing desk', g: 'Office', w: 5, d: 2.5, h: 3.6, c: '#C9A87C', build: deskStand },
+    { t: 'officeChair', n: 'Office chair', g: 'Office', w: 2, d: 2, h: 3.4, c: '#2E3236', build: officeChair },
+    { t: 'guestChair', n: 'Guest chair', g: 'Office', w: 1.9, d: 2, h: 2.9, c: '#5A6270', build: chair },
+    { t: 'monitor', n: 'Monitor', g: 'Office', w: 2, d: .7, h: 1.6, c: '#1A1C1E', elev: 2.5, build: monitor },
+    { t: 'dualMonitor', n: 'Dual monitors', g: 'Office', w: 3.8, d: .8, h: 1.6, c: '#1A1C1E', elev: 2.5, build: dualMonitor },
+    { t: 'deskLamp', n: 'Desk lamp', g: 'Office', w: .9, d: .9, h: 1.6, c: '#3A3D40', elev: 2.5, build: deskLamp },
+    { t: 'printer', n: 'Printer', g: 'Office', w: 1.6, d: 1.4, h: 1.2, c: '#D8D6D2', build: printer },
+    { t: 'fileCab', n: 'File cabinet', g: 'Office', w: 1.4, d: 2, h: 2.4, c: '#6C7278', build: (g, s) => drawers(g, s, 2) },
+    { t: 'fileLateral', n: 'Lateral file', g: 'Office', w: 3, d: 1.6, h: 3.2, c: '#7B5B41', build: (g, s) => drawers(g, s, 3) },
+    { t: 'credenza', n: 'Credenza', g: 'Office', w: 5, d: 1.5, h: 2.4, c: '#7B5B41', build: cabinet },
+    { t: 'storageCab', n: 'Storage cabinet', g: 'Office', w: 3, d: 1.6, h: 6, c: '#8A8F94', build: wardrobe },
+    { t: 'officeShelf', n: 'Shelving unit', g: 'Office', w: 3, d: 1.2, h: 7, c: '#7B5B41', build: shelf },
+    { t: 'confTable', n: 'Conference table', g: 'Office', w: 10, d: 4, h: 2.5, c: '#6E4B33', build: confTable },
+    { t: 'whiteboard', n: 'Whiteboard', g: 'Office', w: 6, d: .2, h: 4, c: '#F2F2EE', elev: 3, build: whiteboard },
+    { t: 'rack', n: 'Equipment rack', g: 'Office', w: 2, d: 2.5, h: 6, c: '#26292B', build: rack },
 
     /* Bath */
     { t: 'toilet', n: 'Toilet', g: 'Bath', w: 1.5, d: 2.5, h: 2.5, c: '#F2F1ED', build: toilet },
@@ -304,6 +322,124 @@
     const pw = (s.w - .6) / 2;
     [-1, 1].forEach(k => bx(g, pw, .32, 1.1, k * pw / 2 * 1.06, 1.85, -s.d / 2 + .95, '#F4F2ED'));
   }
+  /* ── office ── */
+  function deskL(g, s) {
+    const t = .14, run = Math.min(2.2, s.d - .5);
+    bx(g, s.w, t, run, 0, s.h - t, -(s.d - run) / 2, s.c);          // main run at the back
+    bx(g, run, t, s.d - run, (s.w - run) / 2, s.h - t, run / 2, s.c); // return down one side
+    const lg = shade(s.c, .72), L = s.h - t;
+    bx(g, .14, L, .14, -s.w / 2 + .2, 0, -s.d / 2 + .2, lg);
+    bx(g, .14, L, .14, s.w / 2 - .2, 0, -s.d / 2 + .2, lg);
+    bx(g, .14, L, .14, s.w / 2 - .2, 0, s.d / 2 - .2, lg);
+    bx(g, .14, L, .14, s.w / 2 - run + .2, 0, s.d / 2 - .2, lg);
+    bx(g, .14, L, .14, -s.w / 2 + .2, 0, -s.d / 2 + run - .2, lg);
+  }
+
+  function deskExec(g, s) {
+    bx(g, s.w, .16, s.d, 0, s.h - .16, 0, s.c);
+    const ped = Math.min(1.5, s.w / 4);
+    [-1, 1].forEach(k => {
+      const x = k * (s.w / 2 - ped / 2 - .1);
+      bx(g, ped, s.h - .16, s.d - .3, x, 0, 0, shade(s.c, .93));
+      for (let i = 0; i < 3; i++) {
+        bx(g, ped - .16, (s.h - .5) / 3 - .06, .04, x, .15 + i * (s.h - .5) / 3, (s.d - .3) / 2 + .01, shade(s.c, 1.1));
+        bx(g, ped * .45, .06, .06, x, .15 + i * (s.h - .5) / 3 + .18, (s.d - .3) / 2 + .04, '#9AA0A4');
+      }
+    });
+    bx(g, s.w - ped * 2 - .4, s.h - .9, .08, 0, .35, -s.d / 2 + .12, shade(s.c, .93));   // modesty panel
+  }
+
+  function deskStand(g, s) {
+    bx(g, s.w, .14, s.d, 0, s.h - .14, 0, s.c);
+    [-1, 1].forEach(k => {
+      const x = k * (s.w / 2 - .6);
+      bx(g, .22, s.h - .14, .22, x, .1, 0, '#4A4E52');               // lifting column
+      bx(g, .3, .1, s.d * .8, x, 0, 0, '#3A3D40');                   // foot
+    });
+    bx(g, .55, .07, .3, -s.w / 2 + 1.1, s.h - .21, s.d / 2 - .25, '#2B2E30');  // height control
+  }
+
+  function drawers(g, s, n) {
+    bx(g, s.w, s.h, s.d, 0, 0, 0, s.c);
+    const t = (s.h - .12) / n;
+    for (let i = 0; i < n; i++) {
+      const y = .06 + i * t;
+      bx(g, s.w - .14, t - .07, .04, 0, y, s.d / 2 + .01, shade(s.c, 1.12));
+      bx(g, Math.min(1, s.w * .45), .07, .07, 0, y + (t - .07) / 2, s.d / 2 + .04, '#9AA0A4');
+      bx(g, .28, .12, .02, -s.w / 2 + .3, y + (t - .07) / 2 - .3, s.d / 2 + .03, '#C6C0B4');  // label holder
+    }
+  }
+
+  function monitor(g, s) {
+    const ph = s.h * .74;
+    bx(g, s.w * .45, .07, s.d * .8, 0, 0, 0, '#3A3D40');             // stand
+    bx(g, .2, s.h * .26, .2, 0, .07, 0, '#3A3D40');
+    bx(g, s.w, ph, .1, 0, s.h * .26, 0, s.c);                        // bezel
+    bx(g, s.w - .14, ph - .16, .02, 0, s.h * .26 + .08, .06, '#2B3E52');  // screen
+  }
+  function dualMonitor(g, s) {
+    const one = { w: s.w / 2 - .12, d: s.d, h: s.h, c: s.c };
+    [-1, 1].forEach(k => {
+      const m = new THREE.Group();
+      monitor(m, one);
+      m.position.set(k * (s.w / 4 + .06), 0, k === -1 ? .12 : .12);
+      m.rotation.y = -k * .22;                                        // angled in toward the chair
+      g.add(m);
+    });
+  }
+
+  function deskLamp(g, s) {
+    cy(g, s.w / 2.4, .07, 0, 0, 0, s.c);
+    cy(g, .05, s.h * .62, 0, .07, 0, s.c);
+    const arm = bx(g, .05, .05, s.h * .45, 0, s.h * .66, s.h * .12, s.c);
+    arm.rotation.x = .5;
+    const sh = new THREE.Mesh(new THREE.ConeGeometry(.3, .38, 16, 1, true), mat(s.c, { side: THREE.DoubleSide }));
+    sh.position.set(0, s.h * .78, s.h * .28); sh.rotation.x = 2.5;
+    g.add(sh);
+    const b = new THREE.Mesh(new THREE.SphereGeometry(.09, 10, 8), mat('#FFF3D6', { emissive: new THREE.Color('#6A5A30') }));
+    b.position.set(0, s.h * .72, s.h * .3); g.add(b);
+  }
+
+  function printer(g, s) {
+    bx(g, s.w, s.h * .78, s.d, 0, 0, 0, s.c);
+    bx(g, s.w * .92, .07, s.d * .7, 0, s.h * .78, -.06, shade(s.c, .86));   // output tray
+    bx(g, s.w * .8, .05, s.d * .5, 0, s.h * .78 + .07, .12, shade(s.c, .94));
+    bx(g, s.w * .4, .22, .04, -s.w * .18, s.h * .5, s.d / 2 + .01, '#2B2E30');  // panel
+    bx(g, s.w * .12, .1, .03, s.w * .3, s.h * .5, s.d / 2 + .01, '#6BA96B');
+  }
+
+  function whiteboard(g, s) {
+    bx(g, s.w, s.h, .05, 0, 0, .06, '#F4F4F0');
+    const f = '#B8BCC0';
+    bx(g, s.w, .09, .09, 0, s.h - .09, .04, f);
+    bx(g, s.w, .09, .09, 0, 0, .04, f);
+    bx(g, .09, s.h, .09, -s.w / 2 + .045, 0, .04, f);
+    bx(g, .09, s.h, .09, s.w / 2 - .045, 0, .04, f);
+    bx(g, s.w * .5, .06, .22, 0, -.06, .16, f);                       // marker tray
+  }
+
+  function confTable(g, s) {
+    bx(g, s.w, .18, s.d, 0, s.h - .18, 0, s.c);
+    bx(g, s.w - .6, .12, s.d - .5, 0, s.h - .3, 0, shade(s.c, .9));
+    [-1, 1].forEach(k => {
+      const x = k * s.w * .27;
+      bx(g, .6, s.h - .3, s.d * .45, x, 0, 0, shade(s.c, .8));
+      bx(g, 1.3, .14, s.d * .68, x, 0, 0, shade(s.c, .7));
+    });
+  }
+
+  function rack(g, s) {
+    bx(g, s.w, s.h, s.d, 0, 0, -.05, '#26292B');
+    for (let i = 0; i < Math.floor(s.h / .62); i++) {
+      const y = .3 + i * .62;
+      if (y + .5 > s.h) break;
+      bx(g, s.w - .18, .46, .06, 0, y, s.d / 2 + .01, i % 3 ? '#3A3D40' : '#4A4E52');
+      for (let k = 0; k < 3; k++)
+        bx(g, .07, .07, .02, -s.w / 2 + .35 + k * .18, y + .3, s.d / 2 + .05,
+          k === 0 ? '#6BC17A' : k === 1 ? '#D9A441' : '#5AA9E6');     // status lights
+    }
+  }
+
   function toilet(g, s) {
     cy(g, s.w / 2.1, .16, 0, 0, s.d * .16, s.c);
     bx(g, s.w * .62, 1.2, s.d * .52, 0, .16, s.d * .14, s.c);
