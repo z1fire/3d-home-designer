@@ -62,8 +62,10 @@ including gable ends — are rebuilt to follow whatever ceiling you choose.
 
 **Furnishing** — ~45 procedural pieces (sofas, beds, cabinets, appliances, fixtures, stairs,
 ceiling fans and lights). Every piece can be resized, recolored, raised off the floor, and rotated.
-*Against wall* snaps a piece back against the nearest wall of the room it's in. Ceiling-hung items
-follow a vaulted ceiling's height automatically.
+*Against wall* snaps a piece back against the nearest wall of the room it's in; *Into corner* tucks
+it into the nearest corner with its back to one wall and its side to the other, keeping whichever of
+the two orientations is closest to how it is already turned. Ceiling-hung items follow a vaulted
+ceiling's height automatically.
 
 ## Keys
 

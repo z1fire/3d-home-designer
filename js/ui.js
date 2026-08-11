@@ -354,6 +354,7 @@
         HA.snapshot(); f.w = def.w; f.d = def.d; f.h = def.h; f.elev = def.elev || 0; HA.changed(true); props();
       }],
       ['Against wall', () => snapToWall(f)],
+      ['Into corner', () => snapToCorner(f)],
       ['Delete', () => {
         HA.snapshot();
         S.project.furniture = HA.furn().filter(x => x.id !== f.id);
@@ -380,6 +381,42 @@
     f.x = best.g.x + inw.x * off; f.z = best.g.z + inw.z * off;
     f.rot = ((Math.atan2(-inw.x, inw.z) * 180 / Math.PI) % 360 + 360) % 360;
     HA.changed(true); props();
+  }
+
+  /** tuck a piece into the nearest corner: back to one wall, side to the other */
+  function snapToCorner(f) {
+    const r = HA.roomAt(f.x, f.z);
+    if (!r) return HA.status('That item is not inside a room.');
+    const ins = U.inset(r.points, r.wallThickness || 0);   // the inside faces of the walls
+    const n = ins.length;
+    if (n < 3) return;
+    let best = null;
+    ins.forEach((p, i) => {
+      const d = Math.hypot(f.x - p.x, f.z - p.z);
+      if (!best || d < best.d) best = { d: d, i: i, p: p };
+    });
+    const i = best.i, C = best.p;
+    const prev = ins[(i - 1 + n) % n], next = ins[(i + 1) % n];
+    /* inward normal of a wall running a → b */
+    const inwOf = (a, b) => {
+      const L = Math.hypot(b.x - a.x, b.z - a.z) || 1;
+      return { x: -(b.z - a.z) / L, z: (b.x - a.x) / L };
+    };
+    const A = inwOf(prev, C), B = inwOf(C, next);          // the two walls meeting here
+    const rotFor = m => ((Math.atan2(-m.x, m.z) * 180 / Math.PI) % 360 + 360) % 360;
+    /* back against either wall — keep whichever is closer to how it is already turned */
+    const opts = [{ rot: rotFor(A), back: A, side: B }, { rot: rotFor(B), back: B, side: A }];
+    const off = a => { const x = Math.abs(((a - f.rot) % 360 + 360) % 360); return Math.min(x, 360 - x); };
+    const c = off(opts[0].rot) <= off(opts[1].rot) ? opts[0] : opts[1];
+
+    HA.snapshot();
+    const gap = .02;
+    const dd = f.d / 2 + gap, ww = f.w / 2 + gap;
+    f.rot = c.rot;
+    f.x = C.x + c.back.x * dd + c.side.x * ww;
+    f.z = C.z + c.back.z * dd + c.side.z * ww;
+    HA.changed(true); props();
+    HA.status('Tucked into corner ' + (i + 1) + ' of ' + r.name + '.');
   }
 
   function addOpening(r, edge, kind) {
