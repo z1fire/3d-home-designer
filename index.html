@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Design Office — 3D Home Remodeler</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header id="topbar">
+  <div class="brand">Design&nbsp;Office <span>3D Home Remodeler</span></div>
+
+  <div class="seg" id="viewSeg">
+    <button data-view="plan">Plan</button>
+    <button data-view="split" class="on">Split</button>
+    <button data-view="3d">3D</button>
+  </div>
+
+  <div class="spacer"></div>
+
+  <div class="grp">
+    <button id="btnUndo" title="Undo (Ctrl+Z)">↶</button>
+    <button id="btnRedo" title="Redo (Ctrl+Y)">↷</button>
+  </div>
+  <div class="grp">
+    <button id="btnWalk" title="Walkthrough mode (F)">Walk</button>
+    <button id="btnFit" title="Fit view (0)">Fit</button>
+  </div>
+  <div class="grp">
+    <button id="btnNew">New</button>
+    <button id="btnSave">Save file</button>
+    <button id="btnOpen">Open</button>
+    <button id="btnShot">Snapshot</button>
+    <button id="btnHelp">?</button>
+  </div>
+  <input type="file" id="fileInput" accept=".json,application/json" hidden>
+</header>
+
+<div id="app">
+
+  <!-- ───────────── LEFT ───────────── -->
+  <aside id="left">
+    <div class="tools">
+      <button class="tool on" data-tool="select" title="Select / move — V"><b>▶</b>Select</button>
+      <button class="tool" data-tool="rect"   title="Drag out a rectangular room — 1"><b>▭</b>Room</button>
+      <button class="tool" data-tool="poly"   title="Draw any room shape corner by corner — 2"><b>⬡</b>Shape</button>
+      <button class="tool" data-tool="door"   title="Add a door — click a wall — 3"><b>🚪</b>Door</button>
+      <button class="tool" data-tool="window" title="Add a window — click a wall — 4"><b>▤</b>Window</button>
+      <button class="tool" data-tool="paint"  title="Paint a surface — 5 or B"><b>🖌</b>Paint</button>
+    </div>
+
+    <nav class="tabs">
+      <button class="on" data-tab="furnish">Furnish</button>
+      <button data-tab="paintTab">Paint</button>
+      <button data-tab="rooms">Rooms</button>
+    </nav>
+
+    <section class="panel on" data-panel="furnish">
+      <input id="furnSearch" class="search" type="search" placeholder="Search furniture…">
+      <div id="catalog"></div>
+    </section>
+
+    <section class="panel" data-panel="paintTab">
+      <p class="hint">Pick a color, choose the <b>Paint</b> tool, then click any wall, floor or ceiling in the 3D view.</p>
+      <div class="swatchRow">
+        <input type="color" id="paintCustom" value="#e8e4dc">
+        <span id="paintName">Alabaster</span>
+      </div>
+      <div id="swatches"></div>
+      <div class="paintTargets">
+        <label><input type="checkbox" id="paintWholeRoom"> Paint all walls in the room at once</label>
+      </div>
+    </section>
+
+    <section class="panel" data-panel="rooms">
+      <button id="btnAddRoom" class="wide">+ Add room</button>
+      <div id="roomList"></div>
+    </section>
+  </aside>
+
+  <!-- ───────────── CENTER ───────────── -->
+  <main id="center">
+    <div id="planWrap" class="viewport">
+      <canvas id="plan"></canvas>
+      <div class="vpTag">Floor plan</div>
+      <div class="planHud">
+        <label><input type="checkbox" id="snapChk" checked> Snap 3″</label>
+        <span id="planCoord"></span>
+      </div>
+    </div>
+    <div id="viewWrap" class="viewport">
+      <canvas id="view3d"></canvas>
+      <div class="vpTag">3D view</div>
+      <div class="view3dHud">
+        <label><input type="checkbox" id="ceilChk"> Ceiling</label>
+        <label><input type="checkbox" id="cutChk" checked> Cut away near walls</label>
+        <label><input type="checkbox" id="shadowChk" checked> Shadows</label>
+        <label class="sun">Sun <input type="range" id="sunRange" min="0" max="360" value="135"></label>
+      </div>
+      <div id="walkHud" hidden>Walkthrough — <b>W A S D</b> move · <b>Q E</b> up/down · drag to look · <b>Esc</b> exit</div>
+    </div>
+  </main>
+
+  <!-- ───────────── RIGHT ───────────── -->
+  <aside id="right">
+    <h2 id="propTitle">Nothing selected</h2>
+    <div id="props"><p class="hint">Click a room, wall, door, window or piece of furniture in either view to edit it.</p></div>
+  </aside>
+</div>
+
+<footer id="status"><span id="statusMsg">Ready.</span><span id="statusRight"></span></footer>
+
+<div id="helpModal" class="modal" hidden>
+  <div class="sheet">
+    <h2>How to use</h2>
+    <div class="cols">
+      <div>
+        <h3>Floor plan (left)</h3>
+        <ul>
+          <li><b>Room</b> tool — drag out a rectangle. <b>Shape</b> tool — click corners, click the first one (or press Enter) to close.</li>
+          <li><b>Select</b> tool — drag a room to move it, drag a corner dot to reshape, drag furniture to move it.</li>
+          <li>Double-click a wall to add a corner. Alt+click a corner deletes it.</li>
+          <li><b>Door</b> / <b>Window</b> — click on a wall to place, then drag it along the wall.</li>
+          <li>Wheel = zoom, middle-drag or space-drag = pan.</li>
+        </ul>
+        <h3>Keys</h3>
+        <ul>
+          <li><b>V</b> select · <b>1</b> room · <b>2</b> shape · <b>3</b> door · <b>4</b> window · <b>5</b> paint</li>
+          <li><b>R</b> / <b>[</b> <b>]</b> rotate the selected furniture 15° · <b>Del</b> delete · <b>Ctrl+D</b> duplicate</li>
+          <li><b>Ctrl+Z</b> undo · <b>Ctrl+Y</b> redo · <b>Ctrl+S</b> save a file · <b>0</b> fit both views · <b>F</b> walkthrough</li>
+          <li>Type sizes as <code>12'</code>, <code>12' 6"</code>, <code>12.5</code> or <code>30"</code> — all work.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>3D view (right)</h3>
+        <ul>
+          <li>Left-drag orbit · right-drag pan · wheel zoom.</li>
+          <li><b>Select</b> tool — click furniture to select, drag it across the floor.</li>
+          <li><b>Paint</b> tool — pick a color on the left, click a wall / floor / ceiling.</li>
+          <li><b>Walk</b> button — first-person walkthrough at eye height.</li>
+        </ul>
+        <h3>Ceilings</h3>
+        <ul>
+          <li>Select a room, then set the ceiling to Flat, Vaulted&nbsp;gable, Shed, Cathedral&nbsp;barrel or Tray.</li>
+          <li><b>Rise</b> is how far the peak sits above the wall plate. <b>Direction</b> turns the ridge.</li>
+          <li>Gable ends are cut automatically into the walls.</li>
+        </ul>
+      </div>
+    </div>
+    <p class="fine">Everything is saved in this browser automatically. Use <b>Save file</b> for a portable <code>.json</code> you can back up or share.</p>
+    <button id="helpClose">Got it</button>
+  </div>
+</div>
+
+<script src="js/vendor/three.min.js"></script>
+<script src="js/core.js"></script>
+<script src="js/textures.js"></script>
+<script src="js/furniture.js"></script>
+<script src="js/build.js"></script>
+<script src="js/plan.js"></script>
+<script src="js/view.js"></script>
+<script src="js/ui.js"></script>
+</body>
+</html>
