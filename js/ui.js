@@ -758,7 +758,7 @@
       select: 'Select — drag rooms, corners and furniture. Click furniture in 3D to move it.',
       rect: 'Room — drag out a rectangle in the floor plan.',
       poly: 'Shape — click each corner, then click the first corner (or press Enter) to close.',
-      wall: 'Wall — drag out a single partition wall. Hold Shift to lock it to 45°.',
+      wall: 'Wall — click or drag point to point to run walls end to end. Enter, Esc, right-click or double-click to stop. Shift locks to 45°.',
       door: 'Door — click a wall in the floor plan.',
       window: 'Window — click a wall in the floor plan.',
       opening: 'Opening — click a wall to cut an open pass-through. On a shared wall both sides are cut.',

@@ -19,8 +19,9 @@ Tested in Chrome and Edge. Your work saves itself into the browser automatically
 
 **Floor plan (left)**
 - **Room** drags out a rectangle; **Shape** clicks out any polygon (L-shaped rooms, bays, etc.).
-- **Wall** drags out a single partition wall that belongs to no room — for dividing a space, closing
-  off a hallway, or a peninsula. Hold **Shift** to lock it to 45°. It is centred on its line with
+- **Wall** runs walls point to point: click or drag to place each corner and it carries straight on
+  from there, so a whole run is one gesture per corner. **Enter**, **Esc**, right-click or
+  double-click ends the run. Hold **Shift** to lock a segment to 45°. It is centred on its line with
   two finished faces, both ends are draggable, length and angle are typeable, and doors, windows and
   openings can be cut into it. **Pony wall** drops it to 3′ 6″ for a half wall.
 - **Walls join up.** Drop an end near another wall's end, a room corner, or anywhere along a wall or

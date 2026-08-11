@@ -504,6 +504,11 @@
     cv.setPointerCapture(e.pointerId);
     const p = evPt(e);
     mouse = p;
+    if (e.button === 2 && draft && draft.kind === 'wall') {   // right-click ends the run
+      draft = null; snapHit = null; P.draw();
+      HA.status('Wall run finished.');
+      return;
+    }
     if (e.button === 1 || e.button === 2 || spaceDown) {
       drag = { kind: 'pan', px: e.clientX, py: e.clientY, ox: cam.ox, oz: cam.oz };
       return;
@@ -525,7 +530,14 @@
 
     if (tool === 'rect') { draft = { kind: 'rect', a: { x: snap(p.x), z: snap(p.z) }, b: { x: snap(p.x), z: snap(p.z) } }; return; }
 
-    if (tool === 'wall') { draft = { kind: 'wall', a: snapPt(p), b: snapPt(p) }; return; }
+    /* wall chain: each press places the next point and carries on from there */
+    if (tool === 'wall') {
+      const q = snapPt(p);
+      if (!draft || draft.kind !== 'wall') draft = { kind: 'wall', a: q, b: q, press: q, first: q };
+      else draft.press = q;
+      P.draw();
+      return;
+    }
 
     if (tool === 'poly') {
       const q = snapPt(p);
@@ -809,17 +821,26 @@
 
   function up(e) {
     if (draft && draft.kind === 'wall') {
-      const a = draft.a, b = draft.b;
-      draft = null;
-      snapHit = null;
-      if (Math.hypot(b.x - a.x, b.z - a.z) > .5) {
+      /* a click places the point where you pressed; a drag places it where you let go */
+      const moved = Math.hypot(draft.b.x - draft.press.x, draft.b.z - draft.press.z) > .02;
+      const to = moved ? draft.b : draft.press;
+      const a = draft.a;
+      if (Math.hypot(to.x - a.x, to.z - a.z) > .5) {
         HA.snapshot();
-        const w = HA.newWall(a, b);
+        const w = HA.newWall(a, to);
         HA.walls().push(w);
         HA.select({ kind: 'swall', id: w.id });
-        HA.emit('tool', 'select');                 // before closeRing, which sets its own status
-        if (!closeRing(w)) HA.changed(true);
-      } else P.draw();
+        snapHit = null;
+        const madeRoom = closeRing(w);
+        if (!madeRoom) HA.changed(true);
+        if (madeRoom) { draft = null; HA.emit('tool', 'select'); HA.status(closeRing.msg); }
+        else {
+          draft = { kind: 'wall', a: to, b: to, press: to, first: draft.first };   // carry on
+          HA.status('Wall drawn. Keep clicking to continue the run — Enter or Esc to stop.');
+        }
+      }
+      P.draw();
+      return;
     }
     if (draft && draft.kind === 'rect') {
       const a = draft.a, b = { x: snap(mouse.x), z: snap(mouse.z) };
@@ -852,17 +873,22 @@
   /** if this wall just closed a ring, turn the ring into a room */
   function closeRing(w) {
     const loop = HA.wallLoopFrom(w);
-    if (!loop) return false;
+    if (!loop) return null;
     const room = HA.loopToRoom(loop);
     HA.select({ kind: 'room', id: room.id });
     HA.changed(true);
-    HA.status('Those ' + loop.length + ' walls close a ring — made them ' + room.name +
-      ', ' + Math.round(Math.abs(U.area(room.points))) + ' sq ft. Ctrl+Z to keep them as walls.');
-    return true;
+    closeRing.msg = 'Those ' + loop.length + ' walls close a ring — made them ' + room.name +
+      ', ' + Math.round(Math.abs(U.area(room.points))) + ' sq ft. Ctrl+Z to keep them as walls.';
+    HA.status(closeRing.msg);
+    return room;
   }
   P.closeRing = closeRing;
 
   P.closePoly = function () {
+    if (draft && draft.kind === 'wall') {                     // Enter ends a wall run
+      draft = null; snapHit = null; P.draw();
+      return HA.status('Wall run finished.');
+    }
     if (draft && draft.kind === 'poly' && draft.pts.length > 2) {
       HA.snapshot();
       const r = HA.newRoom('Room ' + (HA.rooms().length + 1), draft.pts);
@@ -877,6 +903,10 @@
   P.cancelDraft = function () { draft = null; P.draw(); };
 
   function dbl(e) {
+    if (draft && draft.kind === 'wall') {                     // double-click ends a wall run
+      draft = null; snapHit = null; P.draw();
+      return HA.status('Wall run finished.');
+    }
     const p = evPt(e);
     const h = pick(p.x, p.z);
     if (h && h.kind === 'wall') {                       // insert a corner
