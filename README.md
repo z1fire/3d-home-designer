@@ -65,10 +65,12 @@ Structure: sofas, beds, cabinets, appliances, fixtures, stairs, ceiling fans and
 office set (L-shaped / executive / standing desks, task and guest chairs, monitors, printer, file
 cabinets, credenza, storage, shelving, conference table, whiteboard and an equipment rack).
 Every piece can be resized, recolored, raised off the floor, and rotated.
-*Against wall* snaps a piece back against the nearest wall of the room it's in; *Into corner* tucks
-it into the nearest corner with its back to one wall and its side to the other, keeping whichever of
-the two orientations is closest to how it is already turned. Ceiling-hung items follow a vaulted
-ceiling's height automatically.
+A **Position in room** row places a piece exactly: *Against wall* backs it up to the nearest wall;
+*Into corner* tucks it into the nearest corner with its back to one wall and its side to the other,
+keeping whichever of the two orientations is closest to how it is already turned; *Center* centers it
+in the room, and *Center ↔* / *Center ↕* center one axis while leaving the other where you put it —
+so a sofa can sit centered on the wall it faces without leaving that wall. Ceiling-hung items follow
+a vaulted ceiling's height automatically.
 
 ## Keys
 

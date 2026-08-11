@@ -353,20 +353,52 @@
       ['Reset size', () => {
         HA.snapshot(); f.w = def.w; f.d = def.d; f.h = def.h; f.elev = def.elev || 0; HA.changed(true); props();
       }],
-      ['Against wall', () => snapToWall(f)],
-      ['Into corner', () => snapToCorner(f)],
       ['Delete', () => {
         HA.snapshot();
         S.project.furniture = HA.furn().filter(x => x.id !== f.id);
         HA.select(null); HA.changed(true);
       }, 'danger']
     ]);
+
+    h3(box, 'Position in room');
+    btns(box, [
+      ['Against wall', () => snapToWall(f), null, 'Back the piece up to the nearest wall'],
+      ['Into corner', () => snapToCorner(f), null, 'Tuck it into the nearest corner, back and side to the walls'],
+      ['Center', () => centerIn(f, 'both'), null, 'Center it in the room both ways'],
+      ['Center ↔', () => centerIn(f, 'x'), null, 'Center left to right only — keeps its distance from the top and bottom walls'],
+      ['Center ↕', () => centerIn(f, 'z'), null, 'Center top to bottom only — keeps its distance from the side walls']
+    ]);
+  }
+
+  /** the room a piece belongs to — the one it sits in, else the nearest */
+  function roomFor(f) {
+    const r = HA.roomAt(f.x, f.z);
+    if (r) return r;
+    let best = null;
+    HA.rooms().forEach(x => {
+      const c = U.centroid(x.points), d = Math.hypot(c.x - f.x, c.z - f.z);
+      if (!best || d < best.d) best = { d: d, r: x };
+    });
+    return best ? best.r : null;
+  }
+
+  /** center a piece in its room — both ways, or along one axis only */
+  function centerIn(f, axis) {
+    const r = roomFor(f);
+    if (!r) return HA.status('Draw a room first.');
+    const b = U.bbox(U.inset(r.points, r.wallThickness || 0));   // the clear space
+    HA.snapshot();
+    if (axis !== 'z') f.x = (b.x0 + b.x1) / 2;
+    if (axis !== 'x') f.z = (b.z0 + b.z1) / 2;
+    HA.changed(true); props();
+    HA.status('Centered ' + (axis === 'x' ? 'left to right' : axis === 'z' ? 'top to bottom' : '')
+      + ' in ' + r.name + '.');
   }
 
   /** push a piece of furniture back against the nearest wall of the room it sits in */
   function snapToWall(f) {
-    const r = HA.roomAt(f.x, f.z);
-    if (!r) return HA.status('That item is not inside a room.');
+    const r = roomFor(f);
+    if (!r) return HA.status('Draw a room first.');
     let best = null;
     r.points.forEach((a, i) => {
       const b = r.points[(i + 1) % r.points.length];
@@ -385,8 +417,8 @@
 
   /** tuck a piece into the nearest corner: back to one wall, side to the other */
   function snapToCorner(f) {
-    const r = HA.roomAt(f.x, f.z);
-    if (!r) return HA.status('That item is not inside a room.');
+    const r = roomFor(f);
+    if (!r) return HA.status('Draw a room first.');
     const ins = U.inset(r.points, r.wallThickness || 0);   // the inside faces of the walls
     const n = ins.length;
     if (n < 3) return;
@@ -546,9 +578,9 @@
 
   function btns(box, list) {
     const row = document.createElement('div'); row.className = 'btnRow';
-    list.forEach(([t, fn, cls]) => {
+    list.forEach(([t, fn, cls, tip]) => {
       const b = document.createElement('button');
-      b.textContent = t; if (cls) b.className = cls;
+      b.textContent = t; if (cls) b.className = cls; if (tip) b.title = tip;
       b.onclick = fn;
       row.appendChild(b);
     });
