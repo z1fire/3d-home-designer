@@ -23,6 +23,9 @@ Tested in Chrome and Edge. Your work saves itself into the browser automatically
   Alt+click a corner to remove one.
 - **Door** / **Window** — click a wall to place one, then drag it along the wall. Openings are
   cut through the real wall geometry in 3D, with casing, sills, muntins and a swinging door slab.
+  Size them by **rough opening** *or* by **trim to trim** — type either and the other follows.
+  Casing width is adjustable per opening (3½″ default), and the panel reports the glass size and
+  where each trim edge lands along the wall.
 - Live dimensions on every wall of the selected room; snapping to 3″.
 
 **3D view (right)**
@@ -68,7 +71,8 @@ follow a vaulted ceiling's height automatically.
 `R` `[` `]` rotate selection · `Del` delete · `Ctrl+D` duplicate
 `Ctrl+Z` / `Ctrl+Y` undo / redo · `Ctrl+S` save file · `0` fit views · `F` walkthrough · `Esc` cancel
 
-Sizes accept `12'`, `12' 6"`, `12.5`, `30"` — anything reasonable.
+Sizes accept anything a tape measure would say: `12'`, `12' 6"`, `12'6-1/2"`, `12 6 1/2`, `12.5`,
+`30"`, `3½"`, `42 in`. Everything is displayed to the nearest eighth of an inch.
 
 ## Files
 

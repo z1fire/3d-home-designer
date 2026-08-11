@@ -272,14 +272,40 @@
         options: [['door', 'Door'], ['window', 'Window'], ['opening', 'Cased opening']],
         set: v => { o.kind = v; HA.changed(true); props(); }
       },
-      { label: 'Width', type: 'ft', get: () => o.width, set: v => { o.width = U.clamp(v, .8, L - .4); HA.changed(true); } },
-      { label: 'Height', type: 'ft', get: () => o.height, set: v => { o.height = U.clamp(v, .8, 14); HA.changed(true); } },
+      { label: 'Width (R.O.)', type: 'ft', get: () => o.width, set: v => { o.width = U.clamp(v, .8, L - .4); HA.changed(true); } },
+      {
+        label: 'Trim to trim', type: 'ft',
+        get: () => o.width + 2 * HA.casingOf(o),
+        set: v => { o.width = U.clamp(v - 2 * HA.casingOf(o), .8, L - .4); HA.changed(true); }
+      },
+      { label: 'Height (R.O.)', type: 'ft', get: () => o.height, set: v => { o.height = U.clamp(v, .8, 14); HA.changed(true); } },
+      {
+        label: 'Trim height', type: 'ft',
+        get: () => o.height + HA.casingOf(o),
+        set: v => { o.height = U.clamp(v - HA.casingOf(o), .8, 14); HA.changed(true); }
+      },
       { label: 'Sill height', type: 'ft', get: () => o.sill, set: v => { o.sill = U.clamp(v, 0, 12); HA.changed(true); } },
+      {
+        label: 'Casing width', type: 'ft', get: () => HA.casingOf(o),
+        set: v => { o.casing = U.clamp(v, 0, 1); HA.changed(true); }
+      },
       {
         label: 'Along wall', type: 'range', min: 0, max: Math.max(1, ref.len), step: .25, unit: 'ft',
         get: () => o.offset - ref.s0, fmt: v => U.ft(v),
         set: v => { o.offset = U.clamp(v + ref.s0, o.width / 2, L - o.width / 2); HA.changed(true); }
       },
+      {
+        label: 'Trim edges', type: 'static',
+        get: () => {
+          const c = HA.casingOf(o);
+          return U.ft(o.offset - o.width / 2 - c - ref.s0) + ' and ' +
+            U.ft(o.offset + o.width / 2 + c - ref.s0) + ' from the corner';
+        }
+      },
+      o.kind === 'window' ? {
+        label: 'Glass', type: 'static',
+        get: () => U.ft(Math.max(0, o.width - .2)) + ' × ' + U.ft(Math.max(0, o.height - .2))
+      } : null,
       {
         label: 'Wall', type: 'static',
         get: () => 'edge ' + (o.edge + 1) + ' of ' + r.points.length + ', ' + U.ft(ref.len) + ' long'

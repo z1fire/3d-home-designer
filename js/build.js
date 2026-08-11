@@ -280,7 +280,9 @@
   }
 
   function casing(box, o, w, h, cx, t, inside) {
-    const z = t + .03, cw = .3;
+    const cw = HA.casingOf(o);
+    if (cw < .02) return;                                            // trimless / drywall return
+    const z = t + .03;
     box(w + cw * 2, cw, .06, cx, o._y1 + cw / 2, z);
     box(cw, h + cw, .06, o._u0 - cw / 2, o._y0 + (h + cw) / 2 - cw / 2, z);
     box(cw, h + cw, .06, o._u1 + cw / 2, o._y0 + (h + cw) / 2 - cw / 2, z);

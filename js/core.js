@@ -10,26 +10,66 @@
     clamp(v, a, b) { return v < a ? a : v > b ? b : v; },
     round(v, s) { return Math.round(v / s) * s; },
 
-    /** 12.5 → 12' 6"  */
+    /** 12.5 → 12' 6" ·  0.2917 → 3½" — rounded to the nearest eighth of an inch */
     ft(v) {
+      const FR = ['', '⅛', '¼', '⅜', '½', '⅝', '¾', '⅞'];
       const neg = v < 0; v = Math.abs(v);
-      let f = Math.floor(v + 1e-6);
-      let i = Math.round((v - f) * 12);
-      if (i === 12) { f++; i = 0; }
-      return (neg ? '-' : '') + f + "'" + (i ? ' ' + i + '"' : '');
+      let e = Math.round(v * 96);                     // eighths of an inch
+      const f = Math.floor(e / 96); e -= f * 96;
+      const i = Math.floor(e / 8); e -= i * 8;
+      let s = '';
+      if (f || (!i && !e)) s += f + "'";
+      if (i || e) s += (s ? ' ' : '') + (i || (e ? '' : 0)) + FR[e] + '"';
+      return (neg ? '-' : '') + s;
     },
-    /** "12' 6" | 12.5 | 12 6 | 150in" → 12.5 */
+
+    /** anything a tape measure would say: 12' 6", 12'6-1/2", 12.5, 12 6 1/2, 30", 3½" */
     parseFt(s, fallback) {
-      if (typeof s === 'number') return s;
-      if (!s) return fallback;
-      s = String(s).trim().replace(/[’′]/g, "'").replace(/[”″]/g, '"');
-      let m = s.match(/^(-?[\d.]+)\s*(?:in|")$/i);
-      if (m) return parseFloat(m[1]) / 12;
-      m = s.match(/^(-?[\d.]+)\s*'\s*(?:([\d.]+)\s*"?)?$/);
-      if (m) return parseFloat(m[1]) + (m[2] ? parseFloat(m[2]) / 12 : 0) * (parseFloat(m[1]) < 0 ? -1 : 1);
-      m = s.match(/^(-?[\d.]+)[\s-]+([\d.]+)$/);
-      if (m) return parseFloat(m[1]) + parseFloat(m[2]) / 12;
-      const v = parseFloat(s);
+      if (typeof s === 'number') return isFinite(s) ? s : fallback;
+      if (s === null || s === undefined) return fallback;
+      let t = String(s).toLowerCase().trim()
+        .replace(/[’′]/g, "'").replace(/[”″]/g, '"')
+        .replace(/⅛/g, ' 1/8').replace(/¼/g, ' 1/4').replace(/⅜/g, ' 3/8').replace(/½/g, ' 1/2')
+        .replace(/⅝/g, ' 5/8').replace(/¾/g, ' 3/4').replace(/⅞/g, ' 7/8')
+        .replace(/\bfeet\b|\bfoot\b|\bft\b/g, "'").replace(/\binches\b|\binch\b|\bin\b/g, '"')
+        .replace(/(\d)\s*-\s*(\d)/g, '$1 $2')          // 6-1/2 → 6 1/2
+        .replace(/\s+/g, ' ').trim();
+      if (!t) return fallback;
+
+      /* "6", "6.5", "1/2", "6 1/2" → a single number */
+      const num = str => {
+        const parts = String(str).trim().split(' ').filter(Boolean);
+        if (!parts.length) return NaN;
+        let v = 0;
+        for (const p of parts) {
+          const fr = p.match(/^(\d+)\/(\d+)$/);
+          if (fr) { v += (v < 0 ? -1 : 1) * (+fr[1] / +fr[2]); continue; }
+          if (!/^-?\d*\.?\d+$/.test(p)) return NaN;
+          v += parseFloat(p);
+        }
+        return v;
+      };
+
+      let m = t.match(/^(.*?)'\s*(.*?)"?$/);           // has a foot mark
+      if (m) {
+        const f = m[1].trim() ? num(m[1]) : 0, i = m[2].trim() ? num(m[2]) : 0;
+        if (isFinite(f) && isFinite(i)) return f + (f < 0 ? -1 : 1) * i / 12;
+      }
+      m = t.match(/^(.*)"$/);                          // inches only
+      if (m) { const i = num(m[1]); if (isFinite(i)) return i / 12; }
+
+      /* no units: "12 6" and "12 6 1/2" are feet+inches; "6 1/2" is six and a half feet */
+      const tk = t.split(' ').filter(Boolean);
+      const isFrac = x => /^\d+\/\d+$/.test(x);
+      if (tk.length === 3 && isFrac(tk[2]) && !isFrac(tk[0]) && !isFrac(tk[1])) {
+        const f = num(tk[0]), i = num(tk[1] + ' ' + tk[2]);
+        if (isFinite(f) && isFinite(i)) return f + (f < 0 ? -1 : 1) * i / 12;
+      }
+      if (tk.length === 2 && !isFrac(tk[0]) && !isFrac(tk[1])) {
+        const f = num(tk[0]), i = num(tk[1]);
+        if (isFinite(f) && isFinite(i)) return f + (f < 0 ? -1 : 1) * i / 12;
+      }
+      const v = num(t);
       return isFinite(v) ? v : fallback;
     },
 
@@ -147,8 +187,12 @@
     }, opt || {});
   };
 
+  /** default casing (trim) width — 3½", the common ranch/colonial size */
+  HA.CASING = 3.5 / 12;
+  HA.casingOf = o => (o.casing === undefined || o.casing === null ? HA.CASING : o.casing);
+
   HA.newOpening = function (kind, edge, offset) {
-    const o = { id: U.uid('o'), kind, edge, offset, color: '#F6F6F2' };
+    const o = { id: U.uid('o'), kind, edge, offset, color: '#F6F6F2', casing: HA.CASING };
     if (kind === 'door') { o.width = 3; o.height = 6.75; o.sill = 0; o.swing = 1; }
     else if (kind === 'window') { o.width = 3.5; o.height = 4; o.sill = 2.5; }
     else { o.width = 5; o.height = 7; o.sill = 0; }          // cased opening
@@ -286,7 +330,10 @@
       r.wallColors = r.wallColors || {};
       if (!r.floorMat) r.floorMat = 'plank';
       r.floorAngle = r.floorAngle || 0;
-      (r.openings || []).forEach(o => { o.id = o.id || U.uid('o'); });
+      (r.openings || []).forEach(o => {
+        o.id = o.id || U.uid('o');
+        if (o.casing === undefined) o.casing = HA.CASING;
+      });
       U.ccw(r.points);
     });
     p.furniture.forEach(f => { f.id = f.id || U.uid('f'); f.elev = f.elev || 0; });
