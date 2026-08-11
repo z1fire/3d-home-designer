@@ -129,6 +129,27 @@
       const n = pts.length, p = pts[(i - 1 + n) % n], c = pts[i], q = pts[(i + 1) % n];
       return ((c.x - p.x) * (q.z - c.z) - (c.z - p.z) * (q.x - c.x)) < 0;
     },
+    /** offset a CCW polygon with a different distance per edge (+ve = inward) */
+    offsetPoly(pts, dists) {
+      const n = pts.length, out = [];
+      for (let i = 0; i < n; i++) {
+        const pv = (i - 1 + n) % n;
+        const p = pts[i], a = pts[pv], b = pts[(i + 1) % n];
+        const l1 = Math.hypot(p.x - a.x, p.z - a.z) || 1;
+        const l2 = Math.hypot(b.x - p.x, b.z - p.z) || 1;
+        const n1 = { x: -(p.z - a.z) / l1, z: (p.x - a.x) / l1 };
+        const n2 = { x: -(b.z - p.z) / l2, z: (b.x - p.x) / l2 };
+        const d1 = dists[pv], d2 = dists[i];
+        const det = n1.x * n2.z - n1.z * n2.x;
+        if (Math.abs(det) < 1e-6) { out.push({ x: p.x + n2.x * d2, z: p.z + n2.z * d2 }); continue; }
+        out.push({
+          x: p.x + (d1 * n2.z - d2 * n1.z) / det,
+          z: p.z + (n1.x * d2 - n2.x * d1) / det
+        });
+      }
+      return out;
+    },
+
     /** mitred inward offset of a CCW polygon — the inside face of the walls */
     inset(pts, t) {
       const n = pts.length, out = [];
@@ -268,6 +289,8 @@
   const TAU = Math.PI * 2;
   const nkey = p => Math.round(p.x * 100) / 100 + ':' + Math.round(p.z * 100) / 100;
 
+  /** Free walls AND room outlines, so a pocket can be closed against a room's
+      wall. Room edges are split wherever a wall end lands on them. */
   function wallGraph() {
     const nodes = new Map();
     const touch = p => {
@@ -275,76 +298,115 @@
       if (!nodes.has(k)) nodes.set(k, { x: p.x, z: p.z, links: [] });
       return k;
     };
+    const link = (ka, kb, data) => {
+      if (ka === kb) return;
+      nodes.get(ka).links.push(Object.assign({ to: kb }, data));
+      nodes.get(kb).links.push(Object.assign({ to: ka }, data));
+    };
+
     HA.walls().forEach(w => {
       if (HA.wallLen(w) < .1) return;
-      const ka = touch(w.a), kb = touch(w.b);
-      if (ka === kb) return;
-      nodes.get(ka).links.push({ w: w, to: kb });
-      nodes.get(kb).links.push({ w: w, to: ka });
+      link(touch(w.a), touch(w.b), { w: w });
+    });
+
+    const onWalls = Array.from(nodes.values()).map(n => ({ x: n.x, z: n.z }));
+    S.project.rooms.forEach(r => {
+      const n = r.points.length;
+      for (let i = 0; i < n; i++) {
+        const a = r.points[i], b = r.points[(i + 1) % n];
+        const cuts = [];
+        onWalls.forEach(q => {                         // a wall end landing mid-edge splits it
+          const g = U.seg(q.x, q.z, a, b);
+          if (g.d < .08 && g.t > .002 && g.t < .998) cuts.push({ t: g.t, x: g.x, z: g.z });
+        });
+        cuts.sort((p, q) => p.t - q.t);
+        const chain = [a].concat(cuts, [b]);
+        for (let k = 0; k < chain.length - 1; k++)
+          link(touch(chain[k]), touch(chain[k + 1]), { room: r, edge: i });
+      }
     });
     return nodes;
   }
 
-  function faceFrom(nodes, startKey, nextKey, startWall) {
+  const linkId = l => (l.w ? 'w' + l.w.id : 'r' + l.room.id + '/' + l.edge);
+
+  function faceFrom(nodes, startKey, nextKey, startLink) {
     const ang = (f, t) => Math.atan2(t.z - f.z, t.x - f.x);
-    const seq = [];
-    const used = {};
-    let cur = startKey, nxt = nextKey, wall = startWall;
+    const seq = [], used = {};
+    let cur = startKey, nxt = nextKey, cameBy = startLink;
     for (let guard = 0; guard < 400; guard++) {
-      if (used[wall.id]) return null;                       // a spur, not a ring
-      used[wall.id] = 1;
       const a = nodes.get(cur), b = nodes.get(nxt);
-      seq.push({ wall: wall, from: { x: a.x, z: a.z }, to: { x: b.x, z: b.z } });
+      seq.push({
+        wall: cameBy.w || null, room: cameBy.room || null, edge: cameBy.edge,
+        from: { x: a.x, z: a.z }, to: { x: b.x, z: b.z }
+      });
       const back = ang(b, a);
       let best = null;
       b.links.forEach(l => {
-        if (l.w.id === wall.id) return;
+        if (l.to === cur && linkId(l) === linkId(cameBy)) return;    // don't turn straight back
         let d = (ang(b, nodes.get(l.to)) - back) % TAU;
-        if (d <= 1e-9) d += TAU;                            // tightest turn that isn't a reversal
+        if (d <= 1e-9) d += TAU;                                     // tightest turn available
         if (!best || d < best.d) best = { d: d, l: l };
       });
       if (!best) return null;
-      cur = nxt; nxt = best.l.to; wall = best.l.w;
+      cur = nxt; nxt = best.l.to; cameBy = best.l;
+      const id = linkId(cameBy);
       if (cur === startKey && nxt === nextKey) return seq.length >= 3 ? seq : null;
+      if (used[id] && !cameBy.room) return null;             // reusing a wall means a spur
+      used[id] = 1;
     }
     return null;
   }
 
-  /** the ring of walls enclosing an area through this wall, or null */
+  /** the ring enclosing an area through this wall — walls only, or walls closed
+      against a room's outline — or null if it doesn't enclose anything new */
   HA.wallLoopFrom = function (w) {
     if (!w || HA.wallLen(w) < .1) return null;
     const nodes = wallGraph();
     const ka = nkey(w.a), kb = nkey(w.b);
     if (!nodes.has(ka) || !nodes.has(kb)) return null;
-    const cands = [faceFrom(nodes, ka, kb, w), faceFrom(nodes, kb, ka, w)]
+    const self = { w: w };
+    return [faceFrom(nodes, ka, kb, self), faceFrom(nodes, kb, ka, self)]
       .filter(Boolean)
       .map(s => ({ seq: s, area: Math.abs(U.area(s.map(e => e.from))) }))
-      .filter(c => c.area > .5)
-      .sort((p, q) => p.area - q.area);                     // the inner face is the smaller one
-    return cands.length ? cands[0].seq : null;
+      .filter(c => {
+        if (c.area < .5) return false;
+        if (!c.seq.some(e => e.wall)) return false;         // that's just a room already
+        const m = U.centroid(c.seq.map(e => e.from));       // don't re-line an existing room
+        return !HA.roomAt(m.x, m.z);
+      })
+      .sort((p, q) => p.area - q.area)[0]                   // the inner face is the smaller one
+      ?.seq || null;
   };
 
   /** turn a ring of walls into a room, keeping the walls' paint and openings */
   HA.loopToRoom = function (loop) {
     let seq = loop;
     if (U.area(seq.map(e => e.from)) < 0)                   // room outlines run counter-clockwise
-      seq = seq.slice().reverse().map(e => ({ wall: e.wall, from: e.to, to: e.from }));
+      seq = seq.slice().reverse().map(e => ({
+        wall: e.wall, room: e.room, edge: e.edge, from: e.to, to: e.from
+      }));
 
-    const t = Math.max.apply(null, seq.map(e => e.wall.thickness));
+    const parts = seq.filter(e => e.wall);
+    const t = Math.max.apply(null, parts.map(e => e.wall.thickness));
     const centre = seq.map(e => ({ x: e.from.x, z: e.from.z }));
-    const outline = U.inset(centre, -t / 2);                // walls build inward, so grow outward
+    /* a free wall is drawn on its centreline so the outline grows out by half its
+       thickness; a side borrowed from a room already IS that room's outer face,
+       and the new room's own skin goes back-to-back against it */
+    const outline = U.offsetPoly(centre, seq.map(e => e.wall ? -e.wall.thickness / 2 : 0));
 
-    const first = seq[0].wall;
+    const first = parts[0].wall;
     const room = HA.newRoom('Room ' + (HA.rooms().length + 1), outline, {
-      wallHeight: Math.max.apply(null, seq.map(e => e.wall.height)),
+      wallHeight: Math.max.apply(null, parts.map(e => e.wall.height)),
       wallThickness: t,
       wallColor: first.color,
       trimColor: first.trimColor,
-      baseboard: seq.some(e => e.wall.baseboard)
+      baseboard: parts.some(e => e.wall.baseboard)
     });
 
     seq.forEach((e, i) => {
       const w = e.wall;
+      if (!w) return;                                       // borrowed from a room, nothing to move
       if (w.color !== room.wallColor) room.wallColors[i] = w.color;
       const L = HA.wallLen(w) || 1;
       const ex = { x: (e.to.x - e.from.x) / L, z: (e.to.z - e.from.z) / L };
@@ -365,9 +427,17 @@
     });
 
     const gone = {};
-    seq.forEach(e => gone[e.wall.id] = 1);
+    parts.forEach(e => gone[e.wall.id] = 1);
     S.project.walls = HA.walls().filter(w => !gone[w.id]);
     S.project.rooms.push(room);
+
+    /* a door already in the wall we butted onto should open into the new room too */
+    seq.forEach(e => {
+      if (!e.room) return;
+      (e.room.openings || []).forEach(o => {
+        if (o.edge === e.edge && !HA.twinOf(o)) HA.syncTwin(e.room, o);
+      });
+    });
     return room;
   };
 

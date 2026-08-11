@@ -36,6 +36,10 @@ Tested in Chrome and Edge. Your work saves itself into the browser automatically
   not just rectangles. Each wall's paint carries over as a per-wall colour and its doors and windows
   land in the same place on the new outline. The outline is grown outward by half the wall thickness
   so nothing moves. Ctrl+Z puts the walls back; a wall already in a ring gets a **Make a room** button.
+- **You can close against an existing room** rather than walling all four sides: run walls out from
+  one point on a room's wall and back to another, and that stretch of the room's wall completes the
+  ring — an addition, a bump-out, a closet off a bedroom. The shared side sits back-to-back with the
+  room it borrowed, and any door already in that wall is cut through into the new room automatically.
 - Drag a room to move it, drag a corner dot to reshape it, double-click a wall to add a corner,
   Alt+click a corner to remove one.
 - **Door** / **Window** / **Opening** — click a wall to place one, then drag it along the wall.

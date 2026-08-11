@@ -877,8 +877,11 @@
     const room = HA.loopToRoom(loop);
     HA.select({ kind: 'room', id: room.id });
     HA.changed(true);
-    closeRing.msg = 'Those ' + loop.length + ' walls close a ring — made them ' + room.name +
-      ', ' + Math.round(Math.abs(U.area(room.points))) + ' sq ft. Ctrl+Z to keep them as walls.';
+    const n = loop.filter(e => e.wall).length;
+    const against = loop.find(e => e.room);
+    closeRing.msg = 'Those ' + n + ' walls enclose an area' +
+      (against ? ' against ' + against.room.name : '') + ' — made them ' + room.name + ', ' +
+      Math.round(Math.abs(U.area(room.points))) + ' sq ft. Ctrl+Z to keep them as walls.';
     HA.status(closeRing.msg);
     return room;
   }
