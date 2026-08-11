@@ -30,6 +30,11 @@ Tested in Chrome and Edge. Your work saves itself into the browser automatically
   drag either wall and the other follows, and a wall tee'd into the middle of another slides along it
   as that wall is moved or swung rather than tearing off. Moving a whole room takes its attached
   partitions with it.
+- **Close a ring of walls and it becomes a room.** Draw walls around an area and the moment the last
+  one closes the loop they turn into a room with a floor, a ceiling and its own finishes — any shape,
+  not just rectangles. Each wall's paint carries over as a per-wall colour and its doors and windows
+  land in the same place on the new outline. The outline is grown outward by half the wall thickness
+  so nothing moves. Ctrl+Z puts the walls back; a wall already in a ring gets a **Make a room** button.
 - Drag a room to move it, drag a corner dot to reshape it, double-click a wall to add a corner,
   Alt+click a corner to remove one.
 - **Door** / **Window** / **Opening** — click a wall to place one, then drag it along the wall.

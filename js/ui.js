@@ -398,6 +398,16 @@
     btns(box, [
       ['Door', () => addTo('door')], ['Window', () => addTo('window')], ['Opening', () => addTo('opening')]
     ]);
+    if (HA.wallLoopFrom(w)) {
+      h3(box, 'These walls enclose an area');
+      btns(box, [['Make a room', () => {
+        HA.snapshot();
+        const room = HA.loopToRoom(HA.wallLoopFrom(w));
+        HA.select({ kind: 'room', id: room.id });
+        HA.changed(true);
+        HA.status('Made ' + room.name + ' from the ring of walls — it now has a floor and ceiling.');
+      }, null, 'Turn the ring into a room with a floor, a ceiling and its own finishes']]);
+    }
     btns(box, [
       ['Pony wall', () => { HA.snapshot(); w.height = 3.5; HA.changed(true); props(); }, null, 'Drop it to 3 6" — a half wall'],
       ['Full height', () => { HA.snapshot(); w.height = HA.defaults.wallHeight; HA.changed(true); props(); }],

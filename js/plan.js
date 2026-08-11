@@ -817,8 +817,8 @@
         const w = HA.newWall(a, b);
         HA.walls().push(w);
         HA.select({ kind: 'swall', id: w.id });
-        HA.changed(true);
-        HA.emit('tool', 'select');
+        HA.emit('tool', 'select');                 // before closeRing, which sets its own status
+        if (!closeRing(w)) HA.changed(true);
       } else P.draw();
     }
     if (draft && draft.kind === 'rect') {
@@ -841,12 +841,26 @@
           : snapHit.type === 'wall' ? 'Joined into the face of another wall.'
             : snapHit.type === 'corner' ? 'Joined to a room corner.' : 'Joined to a room wall.');
       }
-      if (drag.kind !== 'pan') HA.changed(true);
+      const closed = (drag.kind === 'wallEnd' || drag.kind === 'swall') && closeRing(HA.wall(drag.id));
+      if (drag.kind !== 'pan' && !closed) HA.changed(true);
       drag = null;
       snapHit = null;
       P.draw();
     }
   }
+
+  /** if this wall just closed a ring, turn the ring into a room */
+  function closeRing(w) {
+    const loop = HA.wallLoopFrom(w);
+    if (!loop) return false;
+    const room = HA.loopToRoom(loop);
+    HA.select({ kind: 'room', id: room.id });
+    HA.changed(true);
+    HA.status('Those ' + loop.length + ' walls close a ring — made them ' + room.name +
+      ', ' + Math.round(Math.abs(U.area(room.points))) + ' sq ft. Ctrl+Z to keep them as walls.');
+    return true;
+  }
+  P.closeRing = closeRing;
 
   P.closePoly = function () {
     if (draft && draft.kind === 'poly' && draft.pts.length > 2) {

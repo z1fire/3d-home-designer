@@ -260,6 +260,117 @@
     return out;
   };
 
+  /* ── closing a ring of walls into a room ──
+     Walk the wall graph taking the tightest turn at every node, which traces the
+     smallest area enclosed by a wall. If that walk comes back to where it began
+     without reusing a wall, the walls form a ring and can become a room. */
+
+  const TAU = Math.PI * 2;
+  const nkey = p => Math.round(p.x * 100) / 100 + ':' + Math.round(p.z * 100) / 100;
+
+  function wallGraph() {
+    const nodes = new Map();
+    const touch = p => {
+      const k = nkey(p);
+      if (!nodes.has(k)) nodes.set(k, { x: p.x, z: p.z, links: [] });
+      return k;
+    };
+    HA.walls().forEach(w => {
+      if (HA.wallLen(w) < .1) return;
+      const ka = touch(w.a), kb = touch(w.b);
+      if (ka === kb) return;
+      nodes.get(ka).links.push({ w: w, to: kb });
+      nodes.get(kb).links.push({ w: w, to: ka });
+    });
+    return nodes;
+  }
+
+  function faceFrom(nodes, startKey, nextKey, startWall) {
+    const ang = (f, t) => Math.atan2(t.z - f.z, t.x - f.x);
+    const seq = [];
+    const used = {};
+    let cur = startKey, nxt = nextKey, wall = startWall;
+    for (let guard = 0; guard < 400; guard++) {
+      if (used[wall.id]) return null;                       // a spur, not a ring
+      used[wall.id] = 1;
+      const a = nodes.get(cur), b = nodes.get(nxt);
+      seq.push({ wall: wall, from: { x: a.x, z: a.z }, to: { x: b.x, z: b.z } });
+      const back = ang(b, a);
+      let best = null;
+      b.links.forEach(l => {
+        if (l.w.id === wall.id) return;
+        let d = (ang(b, nodes.get(l.to)) - back) % TAU;
+        if (d <= 1e-9) d += TAU;                            // tightest turn that isn't a reversal
+        if (!best || d < best.d) best = { d: d, l: l };
+      });
+      if (!best) return null;
+      cur = nxt; nxt = best.l.to; wall = best.l.w;
+      if (cur === startKey && nxt === nextKey) return seq.length >= 3 ? seq : null;
+    }
+    return null;
+  }
+
+  /** the ring of walls enclosing an area through this wall, or null */
+  HA.wallLoopFrom = function (w) {
+    if (!w || HA.wallLen(w) < .1) return null;
+    const nodes = wallGraph();
+    const ka = nkey(w.a), kb = nkey(w.b);
+    if (!nodes.has(ka) || !nodes.has(kb)) return null;
+    const cands = [faceFrom(nodes, ka, kb, w), faceFrom(nodes, kb, ka, w)]
+      .filter(Boolean)
+      .map(s => ({ seq: s, area: Math.abs(U.area(s.map(e => e.from))) }))
+      .filter(c => c.area > .5)
+      .sort((p, q) => p.area - q.area);                     // the inner face is the smaller one
+    return cands.length ? cands[0].seq : null;
+  };
+
+  /** turn a ring of walls into a room, keeping the walls' paint and openings */
+  HA.loopToRoom = function (loop) {
+    let seq = loop;
+    if (U.area(seq.map(e => e.from)) < 0)                   // room outlines run counter-clockwise
+      seq = seq.slice().reverse().map(e => ({ wall: e.wall, from: e.to, to: e.from }));
+
+    const t = Math.max.apply(null, seq.map(e => e.wall.thickness));
+    const centre = seq.map(e => ({ x: e.from.x, z: e.from.z }));
+    const outline = U.inset(centre, -t / 2);                // walls build inward, so grow outward
+
+    const first = seq[0].wall;
+    const room = HA.newRoom('Room ' + (HA.rooms().length + 1), outline, {
+      wallHeight: Math.max.apply(null, seq.map(e => e.wall.height)),
+      wallThickness: t,
+      wallColor: first.color,
+      trimColor: first.trimColor,
+      baseboard: seq.some(e => e.wall.baseboard)
+    });
+
+    seq.forEach((e, i) => {
+      const w = e.wall;
+      if (w.color !== room.wallColor) room.wallColors[i] = w.color;
+      const L = HA.wallLen(w) || 1;
+      const ex = { x: (e.to.x - e.from.x) / L, z: (e.to.z - e.from.z) / L };
+      const flipped = Math.hypot(w.a.x - e.from.x, w.a.z - e.from.z) > .05;
+      const edgeLen = U.edgeLen(room.points, i);
+      (w.openings || []).forEach(o => {
+        const u = flipped ? L - o.offset : o.offset;        // the ring may run against the wall
+        const q = { x: e.from.x + ex.x * u, z: e.from.z + ex.z * u };
+        const c = room.points[i];
+        const at = (q.x - c.x) * ex.x + (q.z - c.z) * ex.z;
+        const copy = U.clone(o);
+        copy.id = U.uid('o'); copy.edge = i; copy.pair = null;
+        copy.width = Math.min(copy.width, Math.max(1, edgeLen - .4));
+        copy.offset = U.clamp(at, copy.width / 2, edgeLen - copy.width / 2);
+        if (copy.swing) copy.swing = flipped ? -copy.swing : copy.swing;
+        room.openings.push(copy);
+      });
+    });
+
+    const gone = {};
+    seq.forEach(e => gone[e.wall.id] = 1);
+    S.project.walls = HA.walls().filter(w => !gone[w.id]);
+    S.project.rooms.push(room);
+    return room;
+  };
+
   /** default casing (trim) width — 3½", the common ranch/colonial size */
   HA.CASING = 3.5 / 12;
   HA.casingOf = o => (o.casing === undefined || o.casing === null ? HA.CASING : o.casing);
