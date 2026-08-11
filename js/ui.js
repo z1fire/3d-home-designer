@@ -7,7 +7,7 @@
 
   /* ─────────────── boot ─────────────── */
   window.addEventListener('DOMContentLoaded', () => {
-    S.project = HA.load() || HA.sample();
+    S.project = HA.load() || HA.migrate(HA.sample());   // migrate also links shared-wall openings
     HA.plan.init();
     HA.view.init();
     buildCatalog();
@@ -267,6 +267,7 @@
     const L = U.edgeLen(r.points, o.edge);
     const ref = HA.edgeRef(r, o.edge);        // 'along wall' is measured on the face you chose
     const twin = HA.twinOf(o);
+    const trimmed = HA.casingOf(o) > .02;
     const sync = () => { HA.syncTwin(r, o); HA.changed(true); };   // keep the far side matching
     add(box, [
       {
@@ -275,22 +276,30 @@
         set: v => { o.kind = v; sync(); props(); }
       },
       { label: 'Width (R.O.)', type: 'ft', get: () => o.width, set: v => { o.width = U.clamp(v, .8, L - .4); sync(); } },
-      {
+      trimmed ? {
         label: 'Trim to trim', type: 'ft',
         get: () => o.width + 2 * HA.casingOf(o),
         set: v => { o.width = U.clamp(v - 2 * HA.casingOf(o), .8, L - .4); sync(); }
-      },
+      } : null,
       { label: 'Height (R.O.)', type: 'ft', get: () => o.height, set: v => { o.height = U.clamp(v, .8, 14); sync(); } },
-      {
+      trimmed ? {
         label: 'Trim height', type: 'ft',
         get: () => o.height + HA.casingOf(o),
         set: v => { o.height = U.clamp(v - HA.casingOf(o), .8, 14); sync(); }
-      },
+      } : null,
       { label: 'Sill height', type: 'ft', get: () => o.sill, set: v => { o.sill = U.clamp(v, 0, 12); sync(); } },
       {
-        label: 'Casing width', type: 'ft', get: () => HA.casingOf(o),
-        set: v => { o.casing = U.clamp(v, 0, 1); sync(); }
+        label: 'Trim', type: 'check', get: () => trimmed,
+        set: v => {
+          if (v) o.casing = o.casingWas || HA.CASING;
+          else { o.casingWas = HA.casingOf(o); o.casing = 0; }   // drywall return
+          sync(); props();
+        }
       },
+      trimmed ? {
+        label: 'Casing width', type: 'ft', get: () => HA.casingOf(o),
+        set: v => { o.casing = U.clamp(v, 0, 1); sync(); if (v < .02) props(); }
+      } : null,
       {
         label: 'Along wall', type: 'range', min: 0, max: Math.max(1, ref.len), step: .25, unit: 'ft',
         get: () => o.offset - ref.s0, fmt: v => U.ft(v),
@@ -298,7 +307,7 @@
       },
       twin ? { label: 'Shared with', type: 'static', get: () => twin.room.name + ' — both sides cut' } : null,
       {
-        label: 'Trim edges', type: 'static',
+        label: trimmed ? 'Trim edges' : 'Edges', type: 'static',
         get: () => {
           const c = HA.casingOf(o);
           return U.ft(o.offset - o.width / 2 - c - ref.s0) + ' and ' +

@@ -245,6 +245,18 @@
       g.add(m); return m;
     };
 
+    /* no casing: line the reveal in the wall colour, the way a drywall return reads */
+    if (HA.casingOf(o) < .02) {
+      const wallMat = new THREE.MeshStandardMaterial({
+        color: new THREE.Color(room.wallColors[o.edge] || room.wallColor), roughness: .93
+      });
+      const e = .012;
+      box(e, h, t, o._u0 + e / 2, o._y0 + h / 2, t / 2, wallMat);
+      box(e, h, t, o._u1 - e / 2, o._y0 + h / 2, t / 2, wallMat);
+      box(w, e, t, cx, o._y1 - e / 2, t / 2, wallMat);
+      if (o._y0 > .05 && o.kind !== 'window') box(w, e, t, cx, o._y0 + e / 2, t / 2, wallMat);
+    }
+
     if (o.kind === 'window') {
       const glass = new THREE.MeshStandardMaterial({
         color: new THREE.Color('#BFD8DE'), transparent: true, opacity: .3,

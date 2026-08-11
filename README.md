@@ -30,7 +30,8 @@ Tested in Chrome and Edge. Your work saves itself into the browser automatically
   appears on the opening.
   Size them by **rough opening** *or* by **trim to trim** — type either and the other follows.
   Casing width is adjustable per opening (3½″ default), and the panel reports the glass size and
-  where each trim edge lands along the wall.
+  where each trim edge lands along the wall. Untick **Trim** for a drywall-return opening with no
+  casing at all — the reveal is then finished in the wall colour rather than trim white.
 - Live dimensions on every wall of the selected room; snapping to 3″.
 
 **3D view (right)**
