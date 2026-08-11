@@ -21,8 +21,13 @@ Tested in Chrome and Edge. Your work saves itself into the browser automatically
 - **Room** drags out a rectangle; **Shape** clicks out any polygon (L-shaped rooms, bays, etc.).
 - Drag a room to move it, drag a corner dot to reshape it, double-click a wall to add a corner,
   Alt+click a corner to remove one.
-- **Door** / **Window** — click a wall to place one, then drag it along the wall. Openings are
-  cut through the real wall geometry in 3D, with casing, sills, muntins and a swinging door slab.
+- **Door** / **Window** / **Opening** — click a wall to place one, then drag it along the wall.
+  Openings are cut through the real wall geometry in 3D, with casing, sills, muntins and a swinging
+  door slab. **Opening** breaks a wall through for a hallway or pass-through.
+- Where two rooms back onto each other there are **two wall skins**, so an opening on a shared wall
+  is cut through both and the pair stays linked — move, resize, retype or delete one side and the
+  other follows. If you draw the room on the far side afterwards, a **Cut far side too** button
+  appears on the opening.
   Size them by **rough opening** *or* by **trim to trim** — type either and the other follows.
   Casing width is adjustable per opening (3½″ default), and the panel reports the glass size and
   where each trim edge lands along the wall.
@@ -74,7 +79,7 @@ a vaulted ceiling's height automatically.
 
 ## Keys
 
-`V` select · `1` room · `2` shape · `3` door · `4` window · `5` paint
+`V` select · `1` room · `2` shape · `3` door · `4` window · `5` opening · `6` paint
 `R` `[` `]` rotate selection · `Del` delete · `Ctrl+D` duplicate
 `Ctrl+Z` / `Ctrl+Y` undo / redo · `Ctrl+S` save file · `0` fit views · `F` walkthrough · `Esc` cancel
 

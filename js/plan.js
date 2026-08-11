@@ -421,7 +421,7 @@
       P.draw(); return;
     }
 
-    if (tool === 'door' || tool === 'window') {
+    if (tool === 'door' || tool === 'window' || tool === 'opening') {
       const inRoom = HA.roomAt(p.x, p.z);
       let best = null;
       HA.rooms().forEach(r => {
@@ -442,8 +442,10 @@
       o.width = Math.min(o.width, Math.max(1, best.len - .6));
       o.offset = U.clamp(best.at, o.width / 2 + .1, best.len - o.width / 2 - .1);
       r.openings.push(o);
+      const tw = HA.syncTwin(r, o);
       HA.select({ kind: 'opening', id: o.id, roomId: r.id });
       HA.changed();
+      if (tw) HA.status('Cut through both sides of the wall shared with ' + HA.twinOf(o).room.name + '.');
       drag = { kind: 'opening', id: o.id, roomId: r.id };
       return;
     }
@@ -566,6 +568,7 @@
         o.edge = edge;
         const L = U.edgeLen(r.points, edge);
         o.offset = U.clamp(snap(at), o.width / 2 + .1, L - o.width / 2 - .1);
+        HA.syncTwin(r, o);                       // drag the far side along with it
         break;
       }
     }

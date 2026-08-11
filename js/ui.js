@@ -266,34 +266,37 @@
     title.textContent = (o.kind === 'door' ? 'Door' : o.kind === 'window' ? 'Window' : 'Cased opening') + ' — ' + r.name;
     const L = U.edgeLen(r.points, o.edge);
     const ref = HA.edgeRef(r, o.edge);        // 'along wall' is measured on the face you chose
+    const twin = HA.twinOf(o);
+    const sync = () => { HA.syncTwin(r, o); HA.changed(true); };   // keep the far side matching
     add(box, [
       {
         label: 'Type', type: 'select', get: () => o.kind,
         options: [['door', 'Door'], ['window', 'Window'], ['opening', 'Cased opening']],
-        set: v => { o.kind = v; HA.changed(true); props(); }
+        set: v => { o.kind = v; sync(); props(); }
       },
-      { label: 'Width (R.O.)', type: 'ft', get: () => o.width, set: v => { o.width = U.clamp(v, .8, L - .4); HA.changed(true); } },
+      { label: 'Width (R.O.)', type: 'ft', get: () => o.width, set: v => { o.width = U.clamp(v, .8, L - .4); sync(); } },
       {
         label: 'Trim to trim', type: 'ft',
         get: () => o.width + 2 * HA.casingOf(o),
-        set: v => { o.width = U.clamp(v - 2 * HA.casingOf(o), .8, L - .4); HA.changed(true); }
+        set: v => { o.width = U.clamp(v - 2 * HA.casingOf(o), .8, L - .4); sync(); }
       },
-      { label: 'Height (R.O.)', type: 'ft', get: () => o.height, set: v => { o.height = U.clamp(v, .8, 14); HA.changed(true); } },
+      { label: 'Height (R.O.)', type: 'ft', get: () => o.height, set: v => { o.height = U.clamp(v, .8, 14); sync(); } },
       {
         label: 'Trim height', type: 'ft',
         get: () => o.height + HA.casingOf(o),
-        set: v => { o.height = U.clamp(v - HA.casingOf(o), .8, 14); HA.changed(true); }
+        set: v => { o.height = U.clamp(v - HA.casingOf(o), .8, 14); sync(); }
       },
-      { label: 'Sill height', type: 'ft', get: () => o.sill, set: v => { o.sill = U.clamp(v, 0, 12); HA.changed(true); } },
+      { label: 'Sill height', type: 'ft', get: () => o.sill, set: v => { o.sill = U.clamp(v, 0, 12); sync(); } },
       {
         label: 'Casing width', type: 'ft', get: () => HA.casingOf(o),
-        set: v => { o.casing = U.clamp(v, 0, 1); HA.changed(true); }
+        set: v => { o.casing = U.clamp(v, 0, 1); sync(); }
       },
       {
         label: 'Along wall', type: 'range', min: 0, max: Math.max(1, ref.len), step: .25, unit: 'ft',
         get: () => o.offset - ref.s0, fmt: v => U.ft(v),
-        set: v => { o.offset = U.clamp(v + ref.s0, o.width / 2, L - o.width / 2); HA.changed(true); }
+        set: v => { o.offset = U.clamp(v + ref.s0, o.width / 2, L - o.width / 2); sync(); }
       },
+      twin ? { label: 'Shared with', type: 'static', get: () => twin.room.name + ' — both sides cut' } : null,
       {
         label: 'Trim edges', type: 'static',
         get: () => {
@@ -316,12 +319,22 @@
     const list = [
       ['Delete', () => {
         HA.snapshot();
-        r.openings = r.openings.filter(k => k.id !== o.id);
+        HA.dropOpening(r, o);
         HA.select({ kind: 'room', id: r.id }); HA.changed(true);
-      }, 'danger']
+      }, 'danger', twin ? 'Removes it from both sides of the wall' : null]
     ];
-    if (o.kind === 'door') list.unshift(['Flip swing', () => { o.swing = o.swing === -1 ? 1 : -1; HA.changed(true); }]);
-    if (o.kind === 'window') list.unshift(['Floor to ceiling', () => { o.sill = 0; o.height = r.wallHeight - 0.6; HA.changed(true); props(); }]);
+    if (o.kind === 'door') list.unshift(['Flip swing', () => { o.swing = o.swing === -1 ? 1 : -1; sync(); }]);
+    if (o.kind === 'window') list.unshift(['Floor to ceiling', () => { o.sill = 0; o.height = r.wallHeight - 0.6; sync(); props(); }]);
+    list.unshift(['Full height', () => {
+      o.sill = 0; o.height = Math.max(6.8, r.wallHeight - 0.9); o.kind = 'opening'; sync(); props();
+    }, null, 'Turn it into a full-height cased opening']);
+    /* room on the far side arrived later — offer to break through its wall too */
+    if (!twin && HA.twinFor(r, o.edge)) {
+      list.unshift(['Cut far side too', () => {
+        HA.snapshot(); HA.syncTwin(r, o); HA.changed(true); props();
+        HA.status('Now cut through both sides of the wall.');
+      }, null, 'Another room backs onto this wall — cut its side as well']);
+    }
     btns(box, list);
   }
 
@@ -457,6 +470,7 @@
     const o = HA.newOpening(kind, edge, L / 2);
     o.width = Math.min(o.width, L - .6);
     r.openings.push(o);
+    HA.syncTwin(r, o);
     HA.select({ kind: 'opening', id: o.id, roomId: r.id });
     HA.changed(true);
   }
@@ -610,6 +624,7 @@
       poly: 'Shape — click each corner, then click the first corner (or press Enter) to close.',
       door: 'Door — click a wall in the floor plan.',
       window: 'Window — click a wall in the floor plan.',
+      opening: 'Opening — click a wall to cut an open pass-through. On a shared wall both sides are cut.',
       paint: 'Paint — pick a color, then click a wall, floor or ceiling in the 3D view.'
     };
     HA.status(tips[t] || '');
@@ -738,7 +753,8 @@
         case '2': setTool('poly'); break;
         case '3': setTool('door'); break;
         case '4': setTool('window'); break;
-        case '5': setTool('paint'); break;
+        case '5': setTool('opening'); break;
+        case '6': setTool('paint'); break;
         case 'b': case 'B': setTool('paint'); break;
         case 'f': case 'F': HA.view.setWalk(!$('#btnWalk').classList.contains('on')); break;
         case '0': HA.plan.fit(); HA.view.fit(); break;
@@ -754,7 +770,9 @@
     HA.snapshot();
     if (s.kind === 'furniture') S.project.furniture = HA.furn().filter(x => x.id !== s.id);
     else if (s.kind === 'opening') {
-      const r = HA.room(s.roomId); r.openings = r.openings.filter(o => o.id !== s.id);
+      const r = HA.room(s.roomId);
+      const o = r && r.openings.find(x => x.id === s.id);
+      if (o) HA.dropOpening(r, o);
     } else if (s.kind === 'vertex') {
       const r = HA.room(s.id);
       if (r.points.length > 3) {

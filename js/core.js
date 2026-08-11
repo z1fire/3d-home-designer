@@ -252,6 +252,86 @@
     return { s0: s0, s1: s1, L: L, len: Math.max(0, s1 - s0) };
   };
 
+  /* ── shared walls ──
+     Every room owns its own wall skins, so where two rooms back onto each other
+     there are two. An opening has to be cut through both or you get a hole that
+     leads into a wall, so openings on a shared wall are kept as a linked pair. */
+
+  /** the wall on the other side of (room, edge), if another room backs onto it */
+  HA.twinFor = function (room, edge, rooms) {
+    const n = room.points.length;
+    const a = room.points[edge], b = room.points[(edge + 1) % n];
+    const L = Math.hypot(b.x - a.x, b.z - a.z);
+    if (L < .1) return null;
+    const ex = { x: (b.x - a.x) / L, z: (b.z - a.z) / L };
+    let found = null;
+    (rooms || S.project.rooms).forEach(r2 => {
+      if (r2.id === room.id || found) return;
+      const m = r2.points.length;
+      for (let j = 0; j < m; j++) {
+        const c = r2.points[j], d = r2.points[(j + 1) % m];
+        const L2 = Math.hypot(d.x - c.x, d.z - c.z);
+        if (L2 < .1) continue;
+        const ex2 = { x: (d.x - c.x) / L2, z: (d.z - c.z) / L2 };
+        if (ex.x * ex2.x + ex.z * ex2.z > -0.999) continue;          // must run the other way
+        const perp = Math.abs((c.x - a.x) * -ex.z + (c.z - a.z) * ex.x);
+        const gap = room.wallThickness + r2.wallThickness + .1;
+        if (perp > gap) continue;                                     // must be the same line
+        const t0 = (c.x - a.x) * ex.x + (c.z - a.z) * ex.z;
+        const t1 = (d.x - a.x) * ex.x + (d.z - a.z) * ex.z;
+        if (Math.max(t0, t1) < .3 || Math.min(t0, t1) > L - .3) continue;   // must overlap
+        found = { room: r2, edge: j, a: a, ex: ex, c: c, ex2: ex2 };
+        return;
+      }
+    });
+    return found;
+  };
+
+  /** a position along one edge, expressed along its twin (they run opposite ways) */
+  function twinOffset(t, u) {
+    const px = t.a.x + t.ex.x * u, pz = t.a.z + t.ex.z * u;
+    return (px - t.c.x) * t.ex2.x + (pz - t.c.z) * t.ex2.z;
+  }
+
+  HA.twinOf = function (o) {
+    if (!o || !o.pair) return null;
+    const r = HA.room(o.pair.roomId);
+    if (!r) return null;
+    const tw = (r.openings || []).find(x => x.id === o.pair.id);
+    return tw ? { room: r, opening: tw } : null;
+  };
+
+  /** create or refresh the matching opening on the far side of a shared wall */
+  HA.syncTwin = function (room, o) {
+    const t = HA.twinFor(room, o.edge);
+    const existing = HA.twinOf(o);
+    if (!t) {                                   // wall is no longer shared
+      if (existing) { existing.opening.pair = null; o.pair = null; }
+      return null;
+    }
+    let tw = existing && existing.room.id === t.room.id ? existing.opening : null;
+    if (!tw) {
+      if (existing) existing.opening.pair = null;
+      tw = HA.newOpening(o.kind, t.edge, 0);
+      t.room.openings.push(tw);
+      o.pair = { roomId: t.room.id, id: tw.id };
+      tw.pair = { roomId: room.id, id: o.id };
+    }
+    tw.edge = t.edge;
+    tw.kind = o.kind; tw.width = o.width; tw.height = o.height; tw.sill = o.sill;
+    tw.casing = o.casing; tw.color = o.color;
+    tw.swing = o.swing === -1 ? 1 : -1;         // hinged from the same jamb, seen from the far side
+    tw.offset = twinOffset(t, o.offset);
+    return tw;
+  };
+
+  /** remove an opening and its twin */
+  HA.dropOpening = function (room, o) {
+    const tw = HA.twinOf(o);
+    if (tw) tw.room.openings = tw.room.openings.filter(x => x.id !== tw.opening.id);
+    room.openings = room.openings.filter(x => x.id !== o.id);
+  };
+
   /** room whose polygon contains this point (last one wins = topmost) */
   HA.roomAt = function (x, z) {
     const rs = S.project.rooms;
@@ -337,6 +417,22 @@
       U.ccw(r.points);
     });
     p.furniture.forEach(f => { f.id = f.id || U.uid('f'); f.elev = f.elev || 0; });
+
+    /* link up openings that already line up across a shared wall */
+    p.rooms.forEach(r => {
+      (r.openings || []).forEach(o => {
+        if (o.pair) return;
+        const t = HA.twinFor(r, o.edge, p.rooms);
+        if (!t) return;
+        const want = twinOffset(t, o.offset);
+        const match = (t.room.openings || []).find(x =>
+          !x.pair && x.edge === t.edge && Math.abs(x.offset - want) < .6 && Math.abs(x.width - o.width) < 1.5);
+        if (match) {
+          o.pair = { roomId: t.room.id, id: match.id };
+          match.pair = { roomId: r.id, id: o.id };
+        }
+      });
+    });
     return p;
   };
 
