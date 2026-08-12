@@ -477,8 +477,13 @@
   function furnProps(box, title, f) {
     if (!f) { HA.select(null); return; }
     const def = HA.furniture.def(f.type);
-    title.textContent = def ? def.n : f.type;
+    const catName = def ? def.n : f.type;
+    title.textContent = f.name || catName;
     add(box, [
+      {
+        label: 'Name', type: 'text', placeholder: catName, get: () => f.name || '',
+        set: v => { f.name = v.trim() || null; title.textContent = f.name || catName; HA.changed(false); }
+      },
       { label: 'Width', type: 'ft', get: () => f.w, set: v => { f.w = U.clamp(v, .3, 40); HA.changed(true); } },
       { label: 'Depth', type: 'ft', get: () => f.d, set: v => { f.d = U.clamp(v, .3, 40); HA.changed(true); } },
       { label: 'Height', type: 'ft', get: () => f.h, set: v => { f.h = U.clamp(v, .1, 20); HA.changed(true); } },
@@ -710,6 +715,7 @@
       } else {
         input = document.createElement('input');
         input.type = 'text';
+        if (d.placeholder) input.placeholder = d.placeholder;
         input.value = d.type === 'ft' ? U.ft(d.get()) : d.get();
         const commit = () => {
           if (d.type === 'ft') {

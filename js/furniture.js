@@ -117,7 +117,10 @@
     { t: 'halfWall', n: 'Half wall', g: 'Structure', w: 6, d: .5, h: 3.5, c: '#E4E1D8', build: halfWall },
     { t: 'ceilingFan', n: 'Ceiling fan', g: 'Structure', w: 4.4, d: 4.4, h: 1.2, c: '#4A4A4A', hang: true, build: fan },
     { t: 'pendant', n: 'Pendant light', g: 'Structure', w: 1.2, d: 1.2, h: 2.5, c: '#2E3236', hang: true, build: pendant },
-    { t: 'chandelier', n: 'Chandelier', g: 'Structure', w: 3, d: 3, h: 2.6, c: '#C9A227', hang: true, build: chandelier }
+    { t: 'chandelier', n: 'Chandelier', g: 'Structure', w: 3, d: 3, h: 2.6, c: '#C9A227', hang: true, build: chandelier },
+
+    /* Custom — stand in for anything the catalog hasn't got */
+    { t: 'box', n: 'Box', g: 'Custom', w: 2, d: 2, h: 2, c: '#B9A88F', build: plainBox }
   ];
 
   const byType = {};
@@ -514,6 +517,7 @@
     }
   }
   function column(g, s) { cy(g, s.w / 2, s.h, 0, 0, 0, s.c); }
+  function plainBox(g, s) { bx(g, s.w, s.h, s.d, 0, 0, 0, s.c); }
   function halfWall(g, s) {
     bx(g, s.w, s.h - .12, s.d, 0, 0, 0, s.c);
     bx(g, s.w + .2, .12, s.d + .2, 0, s.h - .12, 0, shade(s.c, .8));

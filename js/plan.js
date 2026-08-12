@@ -357,7 +357,7 @@
       ctx.rotate(a);
       ctx.font = '10px "Segoe UI",sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillStyle = 'rgba(10,12,14,.8)';
-      ctx.fillText(def.n, 0, 0);
+      ctx.fillText(f.name || def.n, 0, 0);
       ctx.restore();
     }
     if (on) {
