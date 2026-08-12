@@ -41,6 +41,13 @@
     [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(p =>
       bx(g, s, h, s, p[0] * (w / 2 - i), 0, p[1] * (d / 2 - i), color));
   }
+  /** a cylinder lying flat along x or z — unlike cy, (x,y,z) is its centre */
+  function bar(g, r, len, x, y, z, color, axis) {
+    const m = cy(g, r, len, x, y, z, color);
+    m.position.set(x, y, z);
+    m.rotation[axis === 'x' ? 'z' : 'x'] = Math.PI / 2;
+    return m;
+  }
 
   /* ─────────── catalog ───────────
      w = width (x), d = depth (z), h = height, c = main color, c2 = accent   */
@@ -118,6 +125,9 @@
     { t: 'ceilingFan', n: 'Ceiling fan', g: 'Structure', w: 4.4, d: 4.4, h: 1.2, c: '#4A4A4A', hang: true, build: fan },
     { t: 'pendant', n: 'Pendant light', g: 'Structure', w: 1.2, d: 1.2, h: 2.5, c: '#2E3236', hang: true, build: pendant },
     { t: 'chandelier', n: 'Chandelier', g: 'Structure', w: 3, d: 3, h: 2.6, c: '#C9A227', hang: true, build: chandelier },
+
+    /* Gym */
+    { t: 'homeGym', n: 'Weider Pro 6900', g: 'Gym', w: 3.8, d: 6.6, h: 6.8, c: '#3D4247', c2: '#25282B', build: homeGym },
 
     /* Custom — stand in for anything the catalog hasn't got */
     { t: 'box', n: 'Box', g: 'Custom', w: 2, d: 2, h: 2, c: '#B9A88F', build: plainBox }
@@ -518,6 +528,69 @@
   }
   function column(g, s) { cy(g, s.w / 2, s.h, 0, 0, 0, s.c); }
   function plainBox(g, s) { bx(g, s.w, s.h, s.d, 0, 0, 0, s.c); }
+
+  /* ── gym ──
+     Bench and lat tower: uprights at the head carry the barbell and the high
+     pulley, butterfly arms swing off them, leg developer at the foot. */
+  function homeGym(g, s) {
+    const fr = s.c, pad = s.c2 || '#25282B', steel = '#9EA4A9', blk = '#2A2D30';
+    const zb = -s.d / 2, zf = s.d / 2, ux = s.w * .17;
+    const tz = zb + s.d * .08;                       // the tower's plane
+    const seat = 1.5, deck = seat - .22;             // top of the pads, and the frame under them
+
+    /* base: a rail down each side, a foot across each end */
+    [-1, 1].forEach(k => bx(g, .16, .2, s.d * .92, k * ux, 0, 0, fr));
+    bx(g, s.w * .78, .2, .18, 0, 0, tz, fr);
+    bx(g, s.w * .5, .2, .18, 0, 0, zf - s.d * .06, fr);
+
+    /* tower: uprights, yoke, pulley, and the lat bar on its cable */
+    const top = s.h - .18;
+    [-1, 1].forEach(k => bx(g, .17, s.h - .2, .17, k * ux, .2, tz, fr));
+    bx(g, ux * 2 + .17, .18, .2, 0, top, tz, fr);
+    bar(g, .16, .1, 0, top - .22, tz + .16, steel, 'x');
+    const bary = s.h - 1.75;
+    cy(g, .015, top - .22 - bary, 0, bary, tz + .16, blk);
+    bar(g, .035, s.w * .58, 0, bary, tz + .16, steel, 'x');
+    [-1, 1].forEach(k => bx(g, .1, .3, .1, k * s.w * .27, bary - .3, tz + .16, steel, k * .5));
+
+    /* barbell resting in the hooks */
+    [-1, 1].forEach(k => bx(g, .1, .1, .4, k * ux, 3.5, tz + .3, steel));
+    bar(g, .04, s.w * 1.02, 0, 3.62, tz + .42, steel, 'x');
+    [-1.4, -1.15, 1.15, 1.4].forEach(k =>
+      bar(g, .5, .12, k * s.w * .29, 3.62, tz + .42, blk, 'x'));
+
+    /* bench: pedestal, back pad on a slight incline, seat pad */
+    bx(g, .5, deck - .2, .5, 0, .2, zb + s.d * .3, fr);
+    bx(g, .5, deck - .2, .5, 0, .2, zb + s.d * .66, fr);
+    bx(g, .2, .16, s.d * .74, 0, deck - .16, zb + s.d * .5, fr);   // runs on to carry the leg developer
+    const back = bx(g, 1.15, .24, s.d * .25, 0, deck + .04, zb + s.d * .28, pad);
+    back.rotation.x = .11;
+    bx(g, 1.05, .22, s.d * .22, 0, deck, zb + s.d * .56, pad);
+
+    /* butterfly arms, swung forward off the uprights */
+    [-1, 1].forEach(k => {
+      const a = k * .38, len = 1.8;
+      bx(g, .18, .18, .3, k * (ux + .16), 3.1, tz + .16, steel);                 // pivot
+      bx(g, .17, .17, len, k * (ux + .16) + Math.sin(a) * len / 2, 3.14,
+        tz + .16 + Math.cos(a) * len / 2, fr, a);
+      bar(g, .21, .62, k * (ux + .16) + Math.sin(a) * len, 3.35,
+        tz + .16 + Math.cos(a) * len, pad, 'x');                                 // forearm pad
+    });
+
+    /* leg developer at the foot: two roller shafts, a pad each side */
+    const lz = zb + s.d * .82;
+    bx(g, .22, 1.5, .22, 0, deck - .3, lz, fr);
+    [1.05, 2.25].forEach(y => {
+      bar(g, .05, 1.5, 0, y, lz, steel, 'x');
+      [-1, 1].forEach(k => bar(g, .17, .5, k * .55, y, lz, pad, 'x'));
+    });
+
+    /* spare plates on the storage peg */
+    [-1, 1].forEach(k => {
+      bar(g, .06, .5, k * (ux + .34), .95, tz + .1, steel, 'x');
+      [0, 1].forEach(i => bar(g, .58, .13, k * (ux + .22 + i * .15), .95, tz + .1, blk, 'x'));
+    });
+  }
   function halfWall(g, s) {
     bx(g, s.w, s.h - .12, s.d, 0, 0, 0, s.c);
     bx(g, s.w + .2, .12, s.d + .2, 0, s.h - .12, 0, shade(s.c, .8));
