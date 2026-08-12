@@ -127,6 +127,7 @@
     { t: 'chandelier', n: 'Chandelier', g: 'Structure', w: 3, d: 3, h: 2.6, c: '#C9A227', hang: true, build: chandelier },
 
     /* Gym */
+    { t: 'dbRack', n: 'Dumbbell rack', g: 'Gym', w: 4, d: 2, h: 2.4, c: '#42474B', c2: '#2A2D30', build: dumbbellRack },
     { t: 'treadmill', n: 'Treadmill', g: 'Gym', w: 2.8, d: 6.2, h: 4.8, c: '#42474B', c2: '#1D2023', build: treadmill },
     { t: 'homeGym', n: 'Weider Pro 6900', g: 'Gym', w: 3.8, d: 6.6, h: 6.8, c: '#3D4247', c2: '#25282B', build: homeGym },
 
@@ -591,6 +592,41 @@
       bar(g, .06, .5, k * (ux + .34), .95, tz + .1, steel, 'x');
       [0, 1].forEach(i => bar(g, .58, .13, k * (ux + .22 + i * .15), .95, tz + .1, blk, 'x'));
     });
+  }
+
+  /* Three tiers stepping up and back, dumbbells lying across the rails of each */
+  function dumbbellRack(g, s) {
+    const fr = s.c, grip = s.c2 || '#2A2D30', iron = '#3A3E42';
+    const zb = -s.d / 2, zf = s.d / 2, ex = s.w / 2 - .09;
+    /* a member running between two points in the y–z plane */
+    const strut = (x, y0, z0, y1, z1, t, c) => {
+      const L = Math.hypot(y1 - y0, z1 - z0);
+      const m = bx(g, t, L, t, x, (y0 + y1) / 2 - L / 2, (z0 + z1) / 2, c);
+      m.rotation.x = Math.atan2(z1 - z0, y1 - y0);
+      return m;
+    };
+
+    /* an end frame each side: foot, tall post at the back, short one at the front */
+    [-1, 1].forEach(k => {
+      const x = k * ex, fy = s.h * .3;
+      bx(g, .12, .14, s.d, x, 0, 0, fr);
+      bx(g, .12, s.h, .14, x, 0, zb + .07, fr);
+      bx(g, .12, fy, .14, x, 0, zf - .07, fr);
+      strut(x, fy, zf - .07, s.h, zb + .07, .12, fr);
+    });
+
+    /* tiers: a pair of rails, and the dumbbells resting across them */
+    const step = (s.d - .7) / 2, n = 5, span = s.w - .9;
+    for (let i = 0; i < 3; i++) {
+      const y = s.h * (.17 + i * .27), zc = zf - .35 - i * step, r = .3 - i * .04;
+      [-1, 1].forEach(j => bar(g, .05, s.w - .1, 0, y, zc + j * .34, iron, 'x'));
+      for (let k = 0; k < n; k++) {
+        if (i === 2 && k === 3) continue;                 // one pair away in use
+        const px = -span / 2 + k * span / (n - 1), dy = y + r;
+        bar(g, .045, .82, px, dy, zc, grip, 'z');
+        [-1, 1].forEach(j => bar(g, r, .2, px, dy, zc + j * .34, iron, 'z'));
+      }
+    }
   }
 
   /* Console and motor at the back, so backing it to a wall leaves the belt
