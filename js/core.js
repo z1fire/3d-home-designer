@@ -771,7 +771,7 @@
     F('coffeeTable', 11, 7, 0);
     F('tvStand', 11, 14.8, 180);
     F('tv', 11, 15.3, 180, { elev: 3.4 });
-    F('bookshelf', 20.9, 12, -90);
+    F('bookshelf', 20.9, 12, 90);
     F('floorLamp', 2.5, 2.5, 0);
     F('plant', 20, 2.5, 0);
     F('ceilingFan', 11, 8, 0);

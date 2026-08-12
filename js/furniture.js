@@ -220,15 +220,51 @@
     for (let i = 0; i < n; i++)
       bx(g, s.w / n - .12, s.h * .8, .04, -s.w / 2 + s.w / n * (i + .5), s.h * .1, s.d / 2 + .01, shade(s.c, 1.14));
   }
+  const BOOKS = ['#8A4B3C', '#3F5E77', '#6E7A4E', '#8A7A3C', '#5A4664',
+    '#A8663A', '#3E6F63', '#7C3B44', '#4A5A7A', '#9A8451', '#2F4A3E', '#B08A5A'];
+  function book(g, w, h, d, x, y, z) {          // the carcass casts for them; ~90 spines a shelf otherwise
+    const m = bx(g, w, h, d, x, y, z, BOOKS[(Math.random() * BOOKS.length) | 0]);
+    m.castShadow = false; return m;
+  }
   function shelf(g, s) {
-    bx(g, s.w, s.h, s.d, 0, 0, -.02, shade(s.c, .8));
-    const n = Math.max(2, Math.round(s.h / 1.3));
-    for (let i = 1; i < n; i++) {
-      bx(g, s.w - .2, .08, s.d - .1, 0, s.h / n * i, .04, shade(s.c, 1.1));
-      for (let k = 0; k < 6; k++) {
-        const bw = .1 + Math.random() * .12, bh = .55 + Math.random() * .35;
-        bx(g, bw, bh, s.d * .6, -s.w / 2 + .2 + k * (s.w - .5) / 6 + Math.random() * .1,
-          s.h / n * i + .08, .05, ['#8A4B3C', '#3F5E77', '#6E7A4E', '#8A7A3C', '#5A4664'][k % 5]);
+    const side = .09, back = .06, brd = .07;
+    const carc = shade(s.c, .8), zb = -s.d / 2;
+    bx(g, s.w, s.h, back, 0, 0, zb + back / 2, shade(s.c, .68));     // back panel
+    bx(g, side, s.h, s.d, -(s.w - side) / 2, 0, 0, carc);            // sides
+    bx(g, side, s.h, s.d, (s.w - side) / 2, 0, 0, carc);
+    bx(g, s.w, brd, s.d, 0, 0, 0, carc);                             // floor of the case
+    bx(g, s.w, brd, s.d, 0, s.h - brd, 0, carc);                     // top
+
+    const inner = s.w - side * 2, half = inner / 2;
+    const ih = s.h - brd * 2, n = Math.max(2, Math.round(ih / 1.25)), gap = ih / n;
+    const bd = s.d * .62;
+    for (let i = 0; i < n; i++) {
+      const base = brd + gap * i + (i ? brd : 0);     // on a board, or on the case floor
+      const head = brd + gap * (i + 1) - .04;         // clearance under the board above
+      if (i) bx(g, inner, brd, s.d - back, 0, brd + gap * i, back / 2, shade(s.c, 1.06));
+      let x = -half + .02;
+      while (half - x > .1) {
+        const room = half - x;
+        const z = s.d / 2 - (.05 + Math.random() * .1) - bd / 2;   // near the front, not flush
+        if (room > .62 && Math.random() < .16) {      // a flat stack, spines facing out
+          const sw = Math.min(room - .04, .45 + Math.random() * .25);
+          const c = 2 + ((Math.random() * 3) | 0);
+          for (let j = 0; j < c; j++)
+            book(g, sw - j * .02, .11, bd - j * .02, x + sw / 2, base + j * .115, z);
+          x += sw + .04;
+          continue;
+        }
+        const bw = Math.min(room, .09 + Math.random() * .13);
+        const bh = Math.min(head - base, .52 + Math.random() * .42);
+        if (room - bw > .34 && Math.random() < .18) { // last of a run, leaning into the gap
+          const a = (Math.random() < .5 ? -1 : 1) * (.18 + Math.random() * .16);
+          const sink = (bh * Math.cos(a) + bw * Math.abs(Math.sin(a)) - bh) / 2;
+          book(g, bw, bh, bd, x + bw / 2 + bh * Math.abs(Math.sin(a)) / 2, base + sink, z).rotation.z = a;
+          x += bw + bh * Math.abs(Math.sin(a)) + .02;
+          continue;
+        }
+        book(g, bw, bh, bd, x + bw / 2, base, z);
+        x += bw + (Math.random() < .12 ? .05 : .004); // the odd breathing gap
       }
     }
   }
