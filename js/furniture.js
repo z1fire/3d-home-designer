@@ -127,6 +127,7 @@
     { t: 'chandelier', n: 'Chandelier', g: 'Structure', w: 3, d: 3, h: 2.6, c: '#C9A227', hang: true, build: chandelier },
 
     /* Gym */
+    { t: 'treadmill', n: 'Treadmill', g: 'Gym', w: 2.8, d: 6.2, h: 4.8, c: '#42474B', c2: '#1D2023', build: treadmill },
     { t: 'homeGym', n: 'Weider Pro 6900', g: 'Gym', w: 3.8, d: 6.6, h: 6.8, c: '#3D4247', c2: '#25282B', build: homeGym },
 
     /* Custom — stand in for anything the catalog hasn't got */
@@ -590,6 +591,39 @@
       bar(g, .06, .5, k * (ux + .34), .95, tz + .1, steel, 'x');
       [0, 1].forEach(i => bar(g, .58, .13, k * (ux + .22 + i * .15), .95, tz + .1, blk, 'x'));
     });
+  }
+
+  /* Console and motor at the back, so backing it to a wall leaves the belt
+     running out into the room and the step-on end clear. */
+  function treadmill(g, s) {
+    const body = s.c, belt = s.c2 || '#1D2023', trim = '#9EA4A9';
+    const zb = -s.d / 2, zf = s.d / 2;
+    const cowl = s.d * .21;                            // motor housing at the head
+    const dz = s.d - cowl, dc = zb + cowl + dz / 2;    // the running deck
+
+    /* deck: cross feet, frame, belt, a foot rail each side */
+    [zf - .25, zb + cowl + .3].forEach(z => bx(g, s.w * .95, .1, .3, 0, 0, z, body));
+    bx(g, s.w * .95, .35, dz, 0, .1, dc, body);
+    bx(g, s.w * .57, .1, dz - .25, 0, .45, dc, belt);
+    [-1, 1].forEach(k => bx(g, s.w * .17, .13, dz, k * s.w * .39, .45, dc, body));
+
+    /* motor cowl, stepped up to meet the mast */
+    bx(g, s.w * .93, .75, cowl, 0, .1, zb + cowl / 2, body);
+    bx(g, s.w * .78, .25, cowl * .7, 0, .85, zb + cowl * .45, body);
+
+    /* mast, side handrails, console */
+    const mx = s.w * .41, mz = zb + cowl * .5, ct = s.h - .55, rail = s.h * .65;
+    [-1, 1].forEach(k => {
+      bx(g, .18, ct - 1, .22, k * mx, 1, mz, body);
+      bar(g, .07, s.d * .36, k * mx, rail, mz + s.d * .18, trim, 'z');
+      bx(g, .12, rail - .58, .12, k * mx, .58, mz + s.d * .36, trim);   // rail's rear post
+    });
+    bar(g, .07, mx * 2, 0, s.h * .82, mz + .12, trim, 'x');             // cross bar
+    bx(g, mx * 2 + .18, .12, .42, 0, ct, mz, body);                     // console shelf
+    const pz = mz + .18, py = ct + .06;
+    const panel = bx(g, mx * 2, .66, .1, 0, py, pz, '#2A2E31');
+    const disp = bx(g, mx * 1.45, .4, .04, 0, py + .13, pz + .09, '#5E8496');
+    panel.rotation.x = disp.rotation.x = -.38;                          // tipped back to be read
   }
   function halfWall(g, s) {
     bx(g, s.w, s.h - .12, s.d, 0, 0, 0, s.c);
